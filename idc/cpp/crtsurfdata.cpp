@@ -54,7 +54,6 @@ void crtSurfData();
 */
 bool writeCrtSurfData(const string& outpath, const string& datafmt);
 
-
 void EXIT(int sig);     // 程序退出和信号 2 、15 的处理函数
 
 int main(int argc, char* argv[]) {
@@ -63,12 +62,12 @@ int main(int argc, char* argv[]) {
     {
         // 如果参数非法，给出帮助文档
         cout << "Using format: ./crtsurfdata inifile outpath logfile datafmt\n";
-        cout << "Examples: /project/idc/bin/crtsurfdata /project/idc/ini/stcode.ini /tmp/idc/surfdata /log/idc/crtsurfdata.log csv,xml,json\n";
+        cout << "Examples: /CppIndustrialMeteorologyProject/idc/bin/crtsurfdata /CppIndustrialMeteorologyProject/idc/ini/stcode.ini /tmp/idc/surfdata /log/idc/crtsurfdata.log csv,xml,json\n";
 
-        cout << "inifile  气象站点参数文件名。\n";
-        cout << "outpath  气象站点数据文件存放的目录。\n";
-        cout << "logfile  本程序运行的日志文件名。\n";
-        cout << "datafmt 输出数据文件的格式, 支持 csv, xml和 json, 中间用逗号分隔。\n";
+        cout << "inifile: 气象站点参数文件名。\n";
+        cout << "outpath: 气象站点观测数据文件存放的目录。\n";
+        cout << "logfile: 本程序运行的日志文件名。\n";
+        cout << "datafmt: 输出数据文件的格式, 支持 csv, xml和 json, 中间用逗号分隔。\n";
         return -1;
     }
 
@@ -265,6 +264,6 @@ bool writeCrtSurfData(const string& outpath, const string& datafmt) {
 
 // 程序退出和信号 2、15 的处理函数
 void EXIT(int sig) {
-    logfile.write("程序退出，sig = %d\n\n", sig);
+    logfile.write("程序退出, sig = %d\n\n", sig);
     exit(0);
 }
