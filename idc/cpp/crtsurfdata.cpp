@@ -32,6 +32,7 @@ typedef struct StationSurfData {
 
 list<StationCode> stcode_list;  // 存放站点参数
 list<StationSurfData> data_list;    // 存放观测数据
+Cpactive pactive;
 
 clogfile logfile;       // 日志文件
 char str_ddatatime[15];     // 存储当前系统时间
@@ -62,8 +63,9 @@ int main(int argc, char* argv[]) {
     {
         // 如果参数非法，给出帮助文档
         cout << "Using format: ./crtsurfdata inifile outpath logfile datafmt\n";
-        cout << "Examples: /CppIndustrialMeteorologyProject/idc/bin/crtsurfdata /CppIndustrialMeteorologyProject/idc/ini/stcode.ini /tmp/idc/surfdata /log/idc/crtsurfdata.log csv,xml,json\n";
+        cout << "Examples: /CppIndustrialMeteorologyProject/tools/bin/procctl 60 /CppIndustrialMeteorologyProject/idc/bin/crtsurfdata /CppIndustrialMeteorologyProject/idc/ini/stcode.ini /tmp/idc/surfdata /log/idc/crtsurfdata.log csv,xml,json\n";
 
+        cout << "本程序用于生成气象站点观测的分钟数据, 程序每分钟运行一次, 由调度模块启动。\n";
         cout << "inifile: 气象站点参数文件名。\n";
         cout << "outpath: 气象站点观测数据文件存放的目录。\n";
         cout << "logfile: 本程序运行的日志文件名。\n";
@@ -76,6 +78,8 @@ int main(int argc, char* argv[]) {
     closeioandsignal(true);     // 关闭 0、1、2 和忽略全部的信号
     signal(SIGINT, EXIT);
     signal(SIGTERM, EXIT);
+
+    pactive.addProcInfo(10, "crtsurfdata");     // 把当前进程的心跳加入共享内存
 
     if (!logfile.open(argv[3])) {
         cout << "logfile.open(" << argv[3] << ") failed.";
