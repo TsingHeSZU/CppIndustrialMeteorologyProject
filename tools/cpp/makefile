@@ -8,7 +8,7 @@ PUBCPP = /CppIndustrialMeteorologyProject/public/_public.cpp
 CFLAGS = -g
 # CLFAGS = -O2
 
-all: procctl checkproc
+all: procctl checkproc deletefiles gzipfiles
 procctl: procctl.cpp
 	g++ -g -o procctl procctl.cpp
 	cp -f procctl ../bin/.
@@ -17,5 +17,13 @@ checkproc: checkproc.cpp
 	g++ $(CFLAGS) checkproc.cpp -o checkproc $(PUBINCL) $(PUBCPP)
 	cp -f checkproc ../bin/.
 
+deletefiles: deletefiles.cpp
+	g++ $(CFLAGS) deletefiles.cpp -o deletefiles $(PUBINCL) $(PUBCPP)
+	cp -f deletefiles ../bin/.
+
+gzipfiles: gzipfiles.cpp
+	g++ $(CFLAGS) gzipfiles.cpp -o gzipfiles $(PUBINCL) $(PUBCPP)
+	cp -f gzipfiles ../bin/.
+
 clean:
-	rm -rf procctl checkproc
+	rm -rf procctl checkproc deletefiles gzipfiles

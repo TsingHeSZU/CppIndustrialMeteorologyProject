@@ -75,7 +75,7 @@ int main(int argc, char* argv[]) {
 
     // 设置信号，在 shell 状态下可用 "kill + 进程号" 正常终止进程
     // 不要用 "kill -9 + 进程号" 强行终止 
-    closeioandsignal(true);     // 关闭 0、1、2 和忽略全部的信号
+    closeioandsignal(true);     // 关闭 0、1、2 I/O 和忽略全部的信号
     signal(SIGINT, EXIT);
     signal(SIGTERM, EXIT);
 
@@ -261,7 +261,7 @@ bool writeCrtSurfData(const string& outpath, const string& datafmt) {
     // 关闭临时文件，并改名为正式的文件
     ofile.closeandrename();
 
-    logfile.write("生成观测数据文件 %s 成功，数据时间 %s，记录数 %d。\n", str_file_name.c_str(), str_ddatatime, data_list.size());
+    logfile.write("生成观测数据文件 %s 成功, 数据时间 %s, 记录数 %d。\n", str_file_name.c_str(), str_ddatatime, data_list.size());
 
     return true;
 }
