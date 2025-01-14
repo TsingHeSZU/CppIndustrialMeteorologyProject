@@ -32,7 +32,7 @@ typedef struct StationSurfData {
 
 list<StationCode> stcode_list;  // 存放站点参数
 list<StationSurfData> data_list;    // 存放观测数据
-Cpactive pactive;
+Cpactive pactive;       // 进程心跳信息
 
 clogfile logfile;       // 日志文件
 char str_ddatatime[15];     // 存储当前系统时间

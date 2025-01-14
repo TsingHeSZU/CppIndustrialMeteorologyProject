@@ -15,7 +15,7 @@ int main(int argc, char* argv[]) {
 
         printf("本程序用于检查后台服务程序是否超时，如果已超时，就终止它\n");
         printf("注意: \n");
-        printf("1. 本程序由procctl启动, 运行周期建议为 10 秒\n");
+        printf("1. 本程序由 procctl 启动, 运行周期建议为 10 秒\n");
         printf("2. 为了避免被普通用户误杀, 本程序应该用 root 用户启动\n");
         printf("3. 如果要停止本程序, 只能用 killall -9 终止\n\n");
         return 0;
