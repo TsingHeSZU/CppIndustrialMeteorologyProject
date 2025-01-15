@@ -114,7 +114,7 @@ int main(int argc, char* argv[]) {
         writeCrtSurfData(argv[2], "json");
     }
 
-    logfile.write("crtsurfdata 运行结束。\n");
+    logfile.write("crtsurfdata 运行结束。\n\n");
     return 0;
 }
 
