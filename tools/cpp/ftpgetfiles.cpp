@@ -16,6 +16,8 @@ typedef struct StArg
     char remotepathbak[256];// 下载后服务端文件的备份目录
     char okfilename[256];   // 已下载成功文件信息存放的文件
     bool checkmtime;        // 是否需要检查 ftp 服务端文件的时间，true-需要，false-不需要，缺省为 false
+    int timeout;            // 进程心跳超时的时间
+    char pname[51];         // 进程名，建议用 "ftpgetfiles_后缀" 的方式
 }StArg;
 
 // 存放文件信息的结构体
@@ -30,6 +32,7 @@ typedef struct StFileInfo {
 clogfile logfile;   // 日志文件对象
 cftpclient ftp;     // 创建 ftp 客户端对象
 StArg st_arg;       // 程序运行的参数
+Cpactive pactive;  // 进程心跳
 
 /*
     增量下载功能：通过比较容器一和容器二中的文件信息
@@ -79,6 +82,8 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
+    pactive.addProcInfo(st_arg.timeout, st_arg.pname);
+
     // 登录 ftp 服务器
     if (ftp.login(st_arg.host, st_arg.username, st_arg.password, st_arg.mode) == false) {
         logfile.write("ftp login (%s, %s, %s) failed.\n%s\n", st_arg.host, st_arg.username, st_arg.password, ftp.response());
@@ -102,6 +107,8 @@ int main(int argc, char* argv[]) {
 
     logfile.write("nlist(%s) OK.\n", sformat("/tmp/nlist/ftpgetfiles_%d.nlist", getpid()).c_str());
 
+    pactive.updateAtime();  // 更新进程的心跳
+
     // 把 ftpclient.nlist() 方法获取到的 ftp 服务器工作目录文件信息加载到 v_from_nlist 中
     if (loadListFile() == false) {
         logfile.write("loadListFile() failed.\n%s\n", ftp.response());
@@ -122,6 +129,8 @@ int main(int argc, char* argv[]) {
         v_from_nlist.swap(v_download);
     }
 
+    pactive.updateAtime();  // 更新进程的心跳    
+
     // 遍历 v_download 容器，下载 ftp 服务端文件
     string str_remote_filename, str_local_filename;
     for (auto& tmp : v_download) {
@@ -141,6 +150,8 @@ int main(int argc, char* argv[]) {
 
         // 下载成功
         logfile << "OK.\n";
+
+        pactive.updateAtime();  // 更新进程的心跳
 
         // ptype == 1, 增量下载文件，把下载成功的文件记录追加到 okfilename 文件中
         if (st_arg.ptype == 1) {
@@ -189,7 +200,9 @@ void help() {
         "<ptype>1</ptype>"\
         "<remotepathbak>/tmp/idc/surfdatabak</remotepathbak>"\
         "<okfilename>/idcdata/ftplist/ftpgetfiles_test.xml</okfilename>"\
-        "<checkmtime>true</checkmtime>\"\n\n");
+        "<checkmtime>true</checkmtime>"\
+        "<timeout>20</timeout>"\
+        "<pname>ftpgetfiles_test</pname>\"\n\n");
 
     /*
         - 下载文件后，删除 ftp 服务器上的文件
@@ -215,7 +228,9 @@ void help() {
     printf("<okfilename>/idcdata/ftplist/ftpgetfiles_test.xml</okfilename> 上一次 ftp 连接已下载成功文件名清单, "\
         "此参数只有当 ptype = 1 时才有效。\n");
     printf("<checkmtime>true</checkmtime> 是否需要检查服务端文件的时间, true-需要, false-不需要, "\
-        "此参数只有当 ptype = 1 时才有效, 缺省为 false。\n\n");
+        "此参数只有当 ptype = 1 时才有效, 缺省为 false。\n");
+    printf("<timeout>30</timeout> 下载文件超时时间, 单位: 秒, 视文件大小和网络带宽而定。\n");
+    printf("<pname>ftpgetfiles_test</pname> 进程名, 尽可能采用易懂的, 与其它进程不同的名称, 方便故障排查。\n\n");
 }
 
 // 把 xml 解析到参数 st_arg 中
@@ -299,6 +314,20 @@ bool parseXML(const char* str_xml_buffer) {
         getxmlbuffer(str_xml_buffer, "checkmtime", st_arg.checkmtime);
     }
 
+    // 进程心跳的超时时间
+    getxmlbuffer(str_xml_buffer, "timeout", st_arg.timeout);
+    if (st_arg.timeout == 0) {
+        logfile.write("timeout is null.\n");
+        return false;
+    }
+
+    // 进程名，缺省也没关系，所以不用判断是否为空
+    getxmlbuffer(str_xml_buffer, "pname", st_arg.pname, 50);
+    // if (strlen(st_arg.pname) == 0) {
+    //     logfile.write("pname is null.\n");
+    //     return false;
+    // }
+
     return true;
 }
 
@@ -321,7 +350,7 @@ bool loadOKFile() {
     StFileInfo st_file_info;
 
     while (true) {
-        memset(&st_file_info, 0, sizeof(StFileInfo));
+        st_file_info.clear();
         if (ifile.readline(str_buffer) == false) {
             break;
         }

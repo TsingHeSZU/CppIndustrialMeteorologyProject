@@ -792,9 +792,9 @@ namespace idc
     };
 
     // 以下几个宏用于进程的心跳
-#define MAXNUMP     1000     // 最大的进程数量
-#define SHMKEYP    0x5095     // 共享内存的key
-#define SEMKEYP     0x5095     // 信号量的key
+#define MAXNUMP 1000        // 最大的进程数量
+#define SHMKEYP 0x5095      // 共享内存的key
+#define SEMKEYP 0x5095      // 信号量的key
 
     // 进程心跳操作类
     class Cpactive {
