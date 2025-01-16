@@ -14,6 +14,8 @@ typedef struct StArg
     char matchname[256];    // 待下载文件匹配的规则
     int ptype;              // 下载后服务端文件的处理方式：1-什么也不做，2-删除，3-备份
     char remotepathbak[256];// 下载后服务端文件的备份目录
+    char okfilename[256];   // 已下载成功文件信息存放的文件
+    bool checkmtime;        // 是否需要检查 ftp 服务端文件的时间，true-需要，false-不需要，缺省为 false
 }StArg;
 
 // 存放文件信息的结构体
@@ -25,23 +27,30 @@ typedef struct StFileInfo {
     void clear() { this->filename.clear();this->mtime.clear(); }
 }StFileInfo;
 
-// 程序退出和信号 2、15 的处理函数
-void EXIT(int sig);
-
-// 显示程序运行帮助文档
-void help();
-
-// 把 xml 解析到参数 st_arg 中
-bool parseXML(const char* str_xml_buffer);
-
-// 把 ftpclient.nlist() 方法获取到的 ftp 服务器工作目录文件信息加载到 vfilelist 中
-bool loadListFile();
-
 clogfile logfile;   // 日志文件对象
 cftpclient ftp;     // 创建 ftp 客户端对象
 StArg st_arg;       // 程序运行的参数
-vector<StFileInfo> vfilelist;   // 存储 ftp 服务器端 nlist 命令得出来的文件信息
 
+/*
+    增量下载功能：通过比较容器一和容器二中的文件信息
+    - 容器三：存放本次不需要下载的文件信息
+    - 容器四：存放本次需要下载的文件信息
+*/
+map<string, string> m_from_ok;      // 容器一：存放已下载成功的文件，从 okfilename 参数指定的文件目录中加载
+list<StFileInfo> v_from_nlist;      // 容器二：下载前列出 ftp 服务器端工作目录的指定文件，从 nlist 文件中加载
+list<StFileInfo> v_no_download;     // 容器三：存放本次不需要下载的文件信息
+list<StFileInfo> v_download;        // 容器四：存放本次需要下载的文件信息
+
+void EXIT(int sig);                             // 程序退出和信号 2、15 的处理函数
+
+void help();                                    // 显示程序运行帮助文档
+
+bool parseXML(const char* str_xml_buffer);      // 把 xml 解析到参数 st_arg 中
+bool loadOKFile();                              // 加载 okfilename 文件中的内容到容器 m_from_ok 中
+bool loadListFile();                            // 把 ftpclient.nlist() 方法获取到的 ftp 服务器工作目录文件信息加载到 v_from_nlist 中
+bool getYesOrNoDownload();                      // 比较 v_from_nlist 和 m_from_ok，得到 v_no_download 和 v_download
+bool writeNoDownloadFile();                     // 把容器 v_no_download 中的数据写入 okfilename 文件，覆盖之前旧 okfilename 文件
+bool appendNoDownloadFile(StFileInfo& st_file_info);    // 把下载成功的文件记录追加到 okfilename 中
 
 int main(int argc, char* argv[]) {
     /*
@@ -66,6 +75,7 @@ int main(int argc, char* argv[]) {
 
     //解析 xml, 得到程序运行的参数
     if (parseXML(argv[2]) == false) {
+        logfile.write("parse xml failed.\n");
         return -1;
     }
 
@@ -92,15 +102,29 @@ int main(int argc, char* argv[]) {
 
     logfile.write("nlist(%s) OK.\n", sformat("/tmp/nlist/ftpgetfiles_%d.nlist", getpid()).c_str());
 
-    // 把 ftpclient.nlist() 方法获取到的 ftp 服务器工作目录文件信息加载到 vfilelist 中
+    // 把 ftpclient.nlist() 方法获取到的 ftp 服务器工作目录文件信息加载到 v_from_nlist 中
     if (loadListFile() == false) {
         logfile.write("loadListFile() failed.\n%s\n", ftp.response());
         return -1;
     }
 
-    // 遍历 vfilelist 容器，下载 ftp 服务端文件
+    if (st_arg.ptype == 1) {
+        // 加载 okfilename 文件中的内容到容器 v_fromok 中
+        loadOKFile();
+
+        // 比较 v_from_list 和 m_from_ok，得到 v_no_download 和 v_download
+        getYesOrNoDownload();
+
+        // 把容器 v_no_download 中的数据写入 okfilename 文件，覆盖之前旧的 okfilename 文件
+        writeNoDownloadFile();
+    }
+    else {
+        v_from_nlist.swap(v_download);
+    }
+
+    // 遍历 v_download 容器，下载 ftp 服务端文件
     string str_remote_filename, str_local_filename;
-    for (auto& tmp : vfilelist) {
+    for (auto& tmp : v_download) {
         // 拼接 ftp 服务器端全路径名
         sformat(str_remote_filename, "%s/%s", st_arg.remotepath, tmp.filename.c_str());
 
@@ -110,7 +134,7 @@ int main(int argc, char* argv[]) {
         logfile.write("get %s ...", str_remote_filename.c_str());
 
         // 调用 ftp.get() 方法下载文件
-        if (ftp.get(str_remote_filename, str_local_filename) == false) {
+        if (ftp.get(str_remote_filename, str_local_filename, st_arg.checkmtime) == false) {
             logfile << "failed.\n" << ftp.response() << "\n";
             return -1;
         }
@@ -118,7 +142,10 @@ int main(int argc, char* argv[]) {
         // 下载成功
         logfile << "OK.\n";
 
-        // ptype == 1, 增量下载文件
+        // ptype == 1, 增量下载文件，把下载成功的文件记录追加到 okfilename 文件中
+        if (st_arg.ptype == 1) {
+            appendNoDownloadFile(tmp);
+        }
 
         // ptype == 2, 删除服务端的文件
         if (st_arg.ptype == 2) {
@@ -157,10 +184,12 @@ void help() {
         "/CppIndustrialMeteorologyProject/tools/bin/ftpgetfiles /log/idc/ftpgetfiles_test.log " \
         "\"<host>127.0.0.1:21</host><mode>1</mode>"\
         "<username>utopianyouth</username><password>123</password>"\
-        "<remotepath>/tmp/idc/surfdata</remotepath><localpath>/tmp/ftp/client</localpath>"\
-        "<matchname>SURF_ZH*.XML,SURF_ZH*.CSV</matchname>"\
-        "<ptype>3</ptype>"\
-        "<remotepathbak>/tmp/idc/surfdatabak</remotepathbak>\"\n\n");
+        "<remotepath>/tmp/ftp/server</remotepath><localpath>/tmp/ftp/client</localpath>"\
+        "<matchname>*.TXT</matchname>"\
+        "<ptype>1</ptype>"\
+        "<remotepathbak>/tmp/idc/surfdatabak</remotepathbak>"\
+        "<okfilename>/idcdata/ftplist/ftpgetfiles_test.xml</okfilename>"\
+        "<checkmtime>true</checkmtime>\"\n\n");
 
     /*
         - 下载文件后，删除 ftp 服务器上的文件
@@ -182,7 +211,11 @@ void help() {
     printf("<ptype>1</ptype> 文件下载成功后，远程服务端文件的处理方式："\
         "1-什么也不做; 2-删除; 3-备份; 如果为 3, 还要指定备份的目录。\n");
     printf("<remotepathbak>/tmp/idc/surfdatabak</remotepathbak> 文件下载成功后，服务端文件的备份目录, "\
-        "此参数只有当 ptype = 3 时才有效。\n\n");
+        "此参数只有当 ptype = 3 时才有效。\n");
+    printf("<okfilename>/idcdata/ftplist/ftpgetfiles_test.xml</okfilename> 上一次 ftp 连接已下载成功文件名清单, "\
+        "此参数只有当 ptype = 1 时才有效。\n");
+    printf("<checkmtime>true</checkmtime> 是否需要检查服务端文件的时间, true-需要, false-不需要, "\
+        "此参数只有当 ptype = 1 时才有效, 缺省为 false。\n\n");
 }
 
 // 把 xml 解析到参数 st_arg 中
@@ -251,15 +284,63 @@ bool parseXML(const char* str_xml_buffer) {
             logfile.write("remotepathbak is null.\n");
             return false;
         }
-        cout << st_arg.remotepathbak << endl;
+    }
+
+    // 增量下载文件
+    if (st_arg.ptype == 1) {
+        // 已下载成功文件名清单
+        getxmlbuffer(str_xml_buffer, "okfilename", st_arg.okfilename, 255);
+        if (strlen(st_arg.okfilename) == 0) {
+            logfile.write("okfilename is null.\n");
+            return false;
+        }
+
+        // 是否需要检查服务端文件的时间，true-需要，false-不需要，此参数只有当 ptype = 1 时才有效，缺省为 false
+        getxmlbuffer(str_xml_buffer, "checkmtime", st_arg.checkmtime);
     }
 
     return true;
 }
 
-// 把 ftpclient.nlist() 方法获取到的 ftp 服务器工作目录文件信息加载到 vfilelist 中
+// 加载 okfilename 文件中的内容到容器 m_from_ok 中
+bool loadOKFile() {
+    if (st_arg.ptype != 1) {
+        return true;
+    }
+
+    m_from_ok.clear();
+
+    cifile ifile;
+
+    // 注意：如果程序是第一次运行，okfilename 是不存在的，并不是错误，所以也返回 true
+    if (ifile.open(st_arg.okfilename) == false) {
+        return true;
+    }
+
+    string str_buffer;
+    StFileInfo st_file_info;
+
+    while (true) {
+        memset(&st_file_info, 0, sizeof(StFileInfo));
+        if (ifile.readline(str_buffer) == false) {
+            break;
+        }
+
+        getxmlbuffer(str_buffer, "filename", st_file_info.filename);
+        getxmlbuffer(str_buffer, "mtime", st_file_info.mtime);
+
+        m_from_ok[st_file_info.filename] = st_file_info.mtime;
+    }
+
+    for (auto& tmp : m_from_ok) {
+        logfile.write("filename = %s, mtime = %s.\n", tmp.first.c_str(), tmp.second.c_str());
+    }
+    return true;
+}
+
+// 把 ftpclient.nlist() 方法获取到的 ftp 服务器工作目录文件信息加载到 v_from_nlist 中
 bool loadListFile() {
-    vfilelist.clear();
+    v_from_nlist.clear();
 
     cifile ifile;
 
@@ -280,15 +361,87 @@ bool loadListFile() {
             continue;
         }
 
+        if ((st_arg.ptype == 1) && (st_arg.checkmtime == true)) {
+            // 获取 ftp 服务器端文件的最后一次修改时间
+            if (ftp.mtime(str_filename) == false) {
+                logfile.write("ftp.mtime(%s) failed.\n", str_filename.c_str());
+                return false;
+            }
+        }
         // c++11 新标准，允许在容器分配的存储空间中原地构造对象，然后加入到容器尾部
-        vfilelist.emplace_back(StFileInfo(str_filename, ""));
+        v_from_nlist.emplace_back(StFileInfo(str_filename, ftp.m_mtime));
     }
 
     ifile.closeandremove();
 
-    // for (auto&& tmp : vfilelist) {
-    //     logfile.write("filename = %s\n", tmp.filename.c_str());
+    // for (auto&& tmp : v_from_nlist) {
+    //     logfile.write("filename = %s, mtime = %s\n", tmp.filename.c_str(), tmp.mtime.c_str());
     // }
+
+    return true;
+}
+
+// 比较 v_from_nlist 和 m_from_ok，得到 v_no_download 和 v_download
+bool getYesOrNoDownload() {
+    v_no_download.clear();
+    v_download.clear();
+
+    // 遍历 v_from_list
+    for (auto& tmp : v_from_nlist) {
+        auto it = m_from_ok.find(tmp.filename);     // 在容器一中用文件名查找
+
+        if (it != m_from_ok.end()) {
+            // 如果找到了，再判断文件时间
+            if (st_arg.checkmtime == true) {
+                // 如果时间相同，不需要下载，否则需要重新下载
+                if (it->second == tmp.mtime) {
+                    v_no_download.push_back(tmp);
+                }
+                else {
+                    v_download.push_back(tmp);
+                }
+            }
+            else {
+                v_no_download.push_back(tmp);   // 不需要重新下载
+            }
+        }
+        else {
+            // 如果没有找到，把记录放入 v_download 容器
+            v_download.push_back(tmp);
+        }
+    }
+    return true;
+}
+
+// 把容器 v_no_download 中的数据写入 okfilename 文件，覆盖之前旧 okfilename 文件
+bool writeNoDownloadFile() {
+    cofile ofile;
+
+    // 默认覆盖写
+    if (ofile.open(st_arg.okfilename) == false) {
+        logfile.write("file.open(%s) failed.\n", st_arg.okfilename);
+        return false;
+    }
+
+    for (auto& tmp : v_no_download) {
+        ofile.writeline("<filename>%s</filename><mtime>%s</mtime>\n", tmp.filename.c_str(), tmp.mtime.c_str());
+    }
+
+    ofile.closeandrename();
+    return true;
+}
+
+// 把下载成功的文件记录追加到 okfilename 中
+bool appendNoDownloadFile(StFileInfo& st_file_info) {
+    cofile ofile;
+
+    // 以追加的方式打开文件，注意第二个参数一定要填 false
+    if (ofile.open(st_arg.okfilename, false, ios::app) == false) {
+        logfile.write("file.open(%s) failed.\n", st_arg.okfilename);
+        return false;
+    }
+
+    ofile.writeline("<filename>%s</filename><mtime>%s</mtime>\n", st_file_info.filename.c_str(), st_file_info.mtime.c_str());
 
     return true;
 }
