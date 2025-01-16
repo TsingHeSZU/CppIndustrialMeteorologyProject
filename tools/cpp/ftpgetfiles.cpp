@@ -11,7 +11,9 @@ typedef struct StArg
     char password[31];      // 远程服务端 ftp 的密码
     char remotepath[256];   // 远程服务端存放文件的目录
     char localpath[256];    // 本地文件存放的目录
-    char matchname[101];    // 待下载文件匹配的规则
+    char matchname[256];    // 待下载文件匹配的规则
+    int ptype;              // 下载后服务端文件的处理方式：1-什么也不做，2-删除，3-备份
+    char remotepathbak[256];// 下载后服务端文件的备份目录
 }StArg;
 
 // 存放文件信息的结构体
@@ -69,7 +71,7 @@ int main(int argc, char* argv[]) {
 
     // 登录 ftp 服务器
     if (ftp.login(st_arg.host, st_arg.username, st_arg.password, st_arg.mode) == false) {
-        logfile.write("ftp login (%s, %s, %s) failed.\n", st_arg.host, st_arg.username, st_arg.password);
+        logfile.write("ftp login (%s, %s, %s) failed.\n%s\n", st_arg.host, st_arg.username, st_arg.password, ftp.response());
         return -1;
     }
 
@@ -77,14 +79,14 @@ int main(int argc, char* argv[]) {
 
     // 切换 ftp 服务器的工作目录
     if (ftp.chdir(st_arg.remotepath) == false) {
-        logfile.write("ftp.chdir(%s) failed.\n", st_arg.remotepath);
+        logfile.write("ftp.chdir(%s) failed.\n%s\n", st_arg.remotepath, ftp.response());
         return -1;
     }
 
     // 调用 ftp.client.nlist() 方法列出服务器目录中的文件名，保存在本地文件中
     // 第一个参数使用 "." nlist 不列出文件目录，使用 st_arg.remotepath 会列出文件目录（导致 tcp 传输更多的数据）
     if (ftp.nlist(".", sformat("/tmp/nlist/ftpgetfiles_%d.nlist", getpid())) == false) {
-        logfile.write("ftp.nlist(%s) failed.\n", st_arg.remotepath);
+        logfile.write("ftp.nlist(%s) failed.\n%s\n", st_arg.remotepath, ftp.response());
         return -1;
     }
 
@@ -92,7 +94,7 @@ int main(int argc, char* argv[]) {
 
     // 把 ftpclient.nlist() 方法获取到的 ftp 服务器工作目录文件信息加载到 vfilelist 中
     if (loadListFile() == false) {
-        logfile.write("loadListFile() failed.\n");
+        logfile.write("loadListFile() failed.\n%s\n", ftp.response());
         return -1;
     }
 
@@ -109,12 +111,34 @@ int main(int argc, char* argv[]) {
 
         // 调用 ftp.get() 方法下载文件
         if (ftp.get(str_remote_filename, str_local_filename) == false) {
-            logfile << "failed.\n";
+            logfile << "failed.\n" << ftp.response() << "\n";
             return -1;
         }
 
         // 下载成功
         logfile << "OK.\n";
+
+        // ptype == 1, 增量下载文件
+
+        // ptype == 2, 删除服务端的文件
+        if (st_arg.ptype == 2) {
+            if (ftp.ftpdelete(str_remote_filename) == false) {
+                logfile.write("ftp.ftpdelete(%s) failed.\n%s\n", str_remote_filename.c_str(), ftp.response());
+                return -1;
+            }
+        }
+
+        // ptype == 3, 将下载后的文件放入到 ftp 服务器的备份目录
+        if (st_arg.ptype == 3) {
+            // 生成全路径的备份文件名
+            string str_remote_filename_bak = sformat("%s/%s", st_arg.remotepathbak, tmp.filename.c_str());
+            if (ftp.ftprename(str_remote_filename, str_remote_filename_bak) == false) {
+                // 需要注意的是，ftprename 执行时，在 ftp 服务器端，没有创建目录的权限，需要手动创建
+                logfile.write("ftp.ftprename(%s, %s) failed.\n%s\n",
+                    str_remote_filename.c_str(), str_remote_filename_bak.c_str(), ftp.response());
+                return -1;
+            }
+        }
     }
 
     return 0;
@@ -134,7 +158,16 @@ void help() {
         "\"<host>127.0.0.1:21</host><mode>1</mode>"\
         "<username>utopianyouth</username><password>123</password>"\
         "<remotepath>/tmp/idc/surfdata</remotepath><localpath>/tmp/ftp/client</localpath>"\
-        "<matchname>SURF_ZH*.XML,SURF_ZH*.CSV</matchname>\"\n\n");
+        "<matchname>SURF_ZH*.XML,SURF_ZH*.CSV</matchname>"\
+        "<ptype>3</ptype>"\
+        "<remotepathbak>/tmp/idc/surfdatabak</remotepathbak>\"\n\n");
+
+    /*
+        - 下载文件后，删除 ftp 服务器上的文件
+        - 下载文件后，把 ftp 服务器上的文件移动到备份目录
+        - 增量下载文件，每次只下载新增的和修改过的文件
+    */
+
     printf("本程序是通用的功能模块, 用于把远程ftp服务端的文件下载到本地目录; \n");
     printf("logfilename是本程序运行的日志文件; \n");
     printf("xmlbuffer为文件下载的参数, 如下: \n");
@@ -145,7 +178,11 @@ void help() {
     printf("<remotepath>/tmp/idc/surfdata</remotepath> 远程服务端存放文件的目录; \n");
     printf("<localpath>/idcdata/surfdata</localpath> 本地文件存放的目录; \n");
     printf("<matchname>SURF_ZH*.XML,SURF_ZH*.CSV</matchname> 待下载文件匹配的规则。"\
-        "不匹配的文件不会被下载, 本字段尽可能设置精确, 不建议用*匹配全部的文件。\n");
+        "不匹配的文件不会被下载, 本字段尽可能设置精确, 不建议用 * 匹配全部的文件。\n");
+    printf("<ptype>1</ptype> 文件下载成功后，远程服务端文件的处理方式："\
+        "1-什么也不做; 2-删除; 3-备份; 如果为 3, 还要指定备份的目录。\n");
+    printf("<remotepathbak>/tmp/idc/surfdatabak</remotepathbak> 文件下载成功后，服务端文件的备份目录, "\
+        "此参数只有当 ptype = 3 时才有效。\n\n");
 }
 
 // 把 xml 解析到参数 st_arg 中
@@ -198,6 +235,23 @@ bool parseXML(const char* str_xml_buffer) {
     if (strlen(st_arg.matchname) == 0) {
         logfile.write("matchname is null.\n");
         return false;
+    }
+
+    // 下载后服务端文件的处理方式：1-什么也不做，2-删除，3-备份
+    getxmlbuffer(str_xml_buffer, "ptype", st_arg.ptype);
+    if ((st_arg.ptype != 1) && (st_arg.ptype != 2) && (st_arg.ptype != 3)) {
+        logfile.write("ptype is error.\n");
+        return false;
+    }
+
+    // 下载后服务端文件的备份目录
+    if (st_arg.ptype == 3) {
+        getxmlbuffer(str_xml_buffer, "remotepathbak", st_arg.remotepathbak, 255);
+        if (strlen(st_arg.remotepathbak) == 0) {
+            logfile.write("remotepathbak is null.\n");
+            return false;
+        }
+        cout << st_arg.remotepathbak << endl;
     }
 
     return true;
