@@ -4,13 +4,13 @@
 killall -9 procctl
 
 # 停止其它服务程序
-killall crtsurfdata deletefiles
+killall crtsurfdata deletefiles gzipfiles ftpgetfiles ftpputfiles
 
 # 让其它服务程序有足够时间退出
 sleep 5
 
 # 防止出现异常的程序不能正常退出，都强制杀死
-killall -9 crtsurfdata deletefiles gzipfiles
+killall -9 crtsurfdata deletefiles gzipfiles ftpgetfiles ftpputfiles
 
 
 

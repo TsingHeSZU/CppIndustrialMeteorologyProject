@@ -12,15 +12,16 @@ typedef struct StArg
     char remotepath[256];   // 远程服务端存放文件的目录
     char localpath[256];    // 本地文件存放的目录
     char matchname[256];    // 待下载文件匹配的规则
+    char listfilename[256]; // 调用 ftp.client.nlist() 方法列出服务器目录中的文件名，保存在本地文件 listfilename 中
     int ptype;              // 下载后服务端文件的处理方式：1-什么也不做，2-删除，3-备份
     char remotepathbak[256];// 下载后服务端文件的备份目录
-    char okfilename[256];   // 已下载成功文件信息存放的文件
+    char okfilename[256];   // 已下载成功文件名
     bool checkmtime;        // 是否需要检查 ftp 服务端文件的时间，true-需要，false-不需要，缺省为 false
     int timeout;            // 进程心跳超时的时间
     char pname[51];         // 进程名，建议用 "ftpgetfiles_后缀" 的方式
 }StArg;
 
-// 存放文件信息的结构体
+// 文件信息的结构体
 typedef struct StFileInfo {
     string filename;    // 文件名
     string mtime;       // 文件时间
@@ -32,7 +33,7 @@ typedef struct StFileInfo {
 clogfile logfile;   // 日志文件对象
 cftpclient ftp;     // 创建 ftp 客户端对象
 StArg st_arg;       // 程序运行的参数
-Cpactive pactive;  // 进程心跳
+Cpactive pactive;   // 进程心跳
 
 /*
     增量下载功能：通过比较容器一和容器二中的文件信息
@@ -53,7 +54,7 @@ bool loadOKFile();                              // 加载 okfilename 文件中�
 bool loadListFile();                            // 把 ftpclient.nlist() 方法获取到的 ftp 服务器工作目录文件信息加载到 v_from_nlist 中
 bool getYesOrNoDownload();                      // 比较 v_from_nlist 和 m_from_ok，得到 v_no_download 和 v_download
 bool writeNoDownloadFile();                     // 把容器 v_no_download 中的数据写入 okfilename 文件，覆盖之前旧 okfilename 文件
-bool appendNoDownloadFile(StFileInfo& st_file_info);    // 把下载成功的文件记录追加到 okfilename 中
+bool appendDownloadFile(StFileInfo& st_file_info);    // 把下载成功的文件记录追加到 okfilename 中
 
 int main(int argc, char* argv[]) {
     /*
@@ -100,12 +101,12 @@ int main(int argc, char* argv[]) {
 
     // 调用 ftp.client.nlist() 方法列出服务器目录中的文件名，保存在本地文件中
     // 第一个参数使用 "." nlist 不列出文件目录，使用 st_arg.remotepath 会列出文件目录（导致 tcp 传输更多的数据）
-    if (ftp.nlist(".", sformat("/tmp/nlist/ftpgetfiles_%d.nlist", getpid())) == false) {
+    if (ftp.nlist(".", st_arg.listfilename) == false) {
         logfile.write("ftp.nlist(%s) failed.\n%s\n", st_arg.remotepath, ftp.response());
         return -1;
     }
 
-    logfile.write("nlist(%s) OK.\n", sformat("/tmp/nlist/ftpgetfiles_%d.nlist", getpid()).c_str());
+    logfile.write("nlist(%s) OK.\n", st_arg.listfilename);
 
     pactive.updateAtime();  // 更新进程的心跳
 
@@ -155,7 +156,7 @@ int main(int argc, char* argv[]) {
 
         // ptype == 1, 增量下载文件，把下载成功的文件记录追加到 okfilename 文件中
         if (st_arg.ptype == 1) {
-            appendNoDownloadFile(tmp);
+            appendDownloadFile(tmp);
         }
 
         // ptype == 2, 删除服务端的文件
@@ -192,17 +193,21 @@ void EXIT(int sig) {
 void help() {
     printf("\nUsing: /CppIndustrialMeteorologyProject/tools/bin/ftpgetfiles logfilename xmlbuffer\n\n");
     printf("Example: /CppIndustrialMeteorologyProject/tools/bin/procctl 30 "\
-        "/CppIndustrialMeteorologyProject/tools/bin/ftpgetfiles /log/idc/ftpgetfiles_test.log " \
-        "\"<host>127.0.0.1:21</host><mode>1</mode>"\
-        "<username>utopianyouth</username><password>123</password>"\
-        "<remotepath>/tmp/ftp/server</remotepath><localpath>/tmp/ftp/client</localpath>"\
-        "<matchname>*.TXT</matchname>"\
+        "/CppIndustrialMeteorologyProject/tools/bin/ftpgetfiles /log/idc/ftpgetfiles_surfdata.log " \
+        "\"<host>127.0.0.1:21</host>"\
+        "<mode>1</mode>"\
+        "<username>root</username>"\
+        "<password>Hq17373546038</password>"\
+        "<localpath>/idcdata/surfdata</localpath>"\
+        "<remotepath>/tmp/idc/surfdata</remotepath>"\
+        "<matchname>SURF_ZH*.XML,SURF_ZH*.CSV</matchname>"\
+        "<listfilename>/idcdata/ftplist/ftpgetfiles_surfdata.list</listfilename>"\
         "<ptype>1</ptype>"\
         "<remotepathbak>/tmp/idc/surfdatabak</remotepathbak>"\
-        "<okfilename>/idcdata/ftplist/ftpgetfiles_test.xml</okfilename>"\
+        "<okfilename>/idcdata/ftplist/ftpgetfiles_surfdata.xml</okfilename>"\
         "<checkmtime>true</checkmtime>"\
-        "<timeout>20</timeout>"\
-        "<pname>ftpgetfiles_test</pname>\"\n\n");
+        "<timeout>80</timeout>"\
+        "<pname>ftpgetfiles_surfdata</pname>\"\n\n");
 
     /*
         - 下载文件后，删除 ftp 服务器上的文件
@@ -210,27 +215,29 @@ void help() {
         - 增量下载文件，每次只下载新增的和修改过的文件
     */
 
-    printf("本程序是通用的功能模块, 用于把远程ftp服务端的文件下载到本地目录; \n");
-    printf("logfilename是本程序运行的日志文件; \n");
-    printf("xmlbuffer为文件下载的参数, 如下: \n");
-    printf("<host>192.168.150.128:21</host> 远程服务端的IP和端口; \n");
-    printf("<mode>1</mode> 传输模式, 1-被动模式, 2-主动模式, 缺省采用被动模式; \n");
-    printf("<username>utopianyouth</username> 远程服务端ftp的用户名; \n");
-    printf("<password>123</password> 远程服务端ftp的密码; \n");
-    printf("<remotepath>/tmp/idc/surfdata</remotepath> 远程服务端存放文件的目录; \n");
-    printf("<localpath>/idcdata/surfdata</localpath> 本地文件存放的目录; \n");
-    printf("<matchname>SURF_ZH*.XML,SURF_ZH*.CSV</matchname> 待下载文件匹配的规则。"\
-        "不匹配的文件不会被下载, 本字段尽可能设置精确, 不建议用 * 匹配全部的文件。\n");
-    printf("<ptype>1</ptype> 文件下载成功后，远程服务端文件的处理方式："\
-        "1-什么也不做; 2-删除; 3-备份; 如果为 3, 还要指定备份的目录。\n");
+    printf("本程序是通用的功能模块, 用于把远程 ftp 服务端的文件下载到本地目录;\n");
+    printf("logfilename 是本程序运行的日志文件;\n");
+    printf("xmlbuffer 为文件下载的参数, 如下:\n");
+    printf("<host>127.0.0.1:21</host> 远程服务端的 IP 和 port;\n");
+    printf("<mode>1</mode> 传输模式, 1-被动模式, 2-主动模式, 缺省采用被动模式;\n");
+    printf("<username>root</username> 远程服务端 ftp 的用户名;\n");
+    printf("<password>Hq17373546038</password> 远程服务端 ftp 的密码;\n");
+    printf("<remotepath>/tmp/idc/surfdata</remotepath> 远程服务端存放文件的目录;\n");
+    printf("<localpath>/idcdata/surfdata</localpath> 本地文件存放的目录;\n");
+    printf("<matchname>SURF_ZH*.XML,SURF_ZH*.CSV</matchname> 待下载文件匹配的规则, "\
+        "不匹配的文件不会被下载, 本字段尽可能设置精确, 不建议用 * 匹配全部的文件;\n");
+    printf("<listfilename>/idcdata/ftplist/ftpgetfiles_surfdata.list</listfilename> "\
+        "执行 ftp 的 nlist 命令, 列出 ftp 服务器工作目录中所有的文件, 并且保存到 listfilename 文件中;\n");
+    printf("<ptype>1</ptype> 文件下载成功后，远程服务端文件的处理方式: "\
+        "1-什么也不做; 2-删除; 3-备份; 如果为 3, 还要指定备份的目录;\n");
     printf("<remotepathbak>/tmp/idc/surfdatabak</remotepathbak> 文件下载成功后，服务端文件的备份目录, "\
-        "此参数只有当 ptype = 3 时才有效。\n");
-    printf("<okfilename>/idcdata/ftplist/ftpgetfiles_test.xml</okfilename> 上一次 ftp 连接已下载成功文件名清单, "\
-        "此参数只有当 ptype = 1 时才有效。\n");
+        "此参数只有当 ptype = 3 时才有效;\n");
+    printf("<okfilename>/idcdata/ftplist/ftpgetfiles_surfdata.xml</okfilename> 上一次 ftp 连接已下载成功文件名清单, "\
+        "此参数只有当 ptype = 1 时才有效;\n");
     printf("<checkmtime>true</checkmtime> 是否需要检查服务端文件的时间, true-需要, false-不需要, "\
-        "此参数只有当 ptype = 1 时才有效, 缺省为 false。\n");
-    printf("<timeout>30</timeout> 下载文件超时时间, 单位: 秒, 视文件大小和网络带宽而定。\n");
-    printf("<pname>ftpgetfiles_test</pname> 进程名, 尽可能采用易懂的, 与其它进程不同的名称, 方便故障排查。\n\n");
+        "此参数只有当 ptype = 1 时才有效, 缺省为 false;\n");
+    printf("<timeout>80</timeout> 进程心跳，也就是下载文件超时时间, 单位: 秒, 视文件大小和网络带宽而定;\n");
+    printf("<pname>ftpgetfiles_surfdata</pname> 进程名, 尽可能采用易懂的, 与其它进程不同的名称, 方便故障排查。\n\n");
 }
 
 // 把 xml 解析到参数 st_arg 中
@@ -285,6 +292,13 @@ bool parseXML(const char* str_xml_buffer) {
         return false;
     }
 
+    // nlist 命令列出工作目录中的所有文件信息，存放到 listfilename 文件中
+    getxmlbuffer(str_xml_buffer, "listfilename", st_arg.listfilename, 256);
+    if (strlen(st_arg.listfilename) == 0) {
+        logfile.write("listfilename is null.\n");
+        return false;
+    }
+
     // 下载后服务端文件的处理方式：1-什么也不做，2-删除，3-备份
     getxmlbuffer(str_xml_buffer, "ptype", st_arg.ptype);
     if ((st_arg.ptype != 1) && (st_arg.ptype != 2) && (st_arg.ptype != 3)) {
@@ -303,7 +317,7 @@ bool parseXML(const char* str_xml_buffer) {
 
     // 增量下载文件
     if (st_arg.ptype == 1) {
-        // 已下载成功文件名清单
+        // 上一次 ftp 连接已下载成功文件名清单
         getxmlbuffer(str_xml_buffer, "okfilename", st_arg.okfilename, 255);
         if (strlen(st_arg.okfilename) == 0) {
             logfile.write("okfilename is null.\n");
@@ -333,9 +347,6 @@ bool parseXML(const char* str_xml_buffer) {
 
 // 加载 okfilename 文件中的内容到容器 m_from_ok 中
 bool loadOKFile() {
-    if (st_arg.ptype != 1) {
-        return true;
-    }
 
     m_from_ok.clear();
 
@@ -361,9 +372,10 @@ bool loadOKFile() {
         m_from_ok[st_file_info.filename] = st_file_info.mtime;
     }
 
-    for (auto& tmp : m_from_ok) {
-        logfile.write("filename = %s, mtime = %s.\n", tmp.first.c_str(), tmp.second.c_str());
-    }
+    // for (auto& tmp : m_from_ok) {
+    //     logfile.write("filename = %s, mtime = %s.\n", tmp.first.c_str(), tmp.second.c_str());
+    // }
+
     return true;
 }
 
@@ -373,14 +385,15 @@ bool loadListFile() {
 
     cifile ifile;
 
-    if (ifile.open(sformat("/tmp/nlist/ftpgetfiles_%d.nlist", getpid())) == false) {
-        logfile.write("ifile.open(%s) failed.\n", sformat("/tmp/nlist/ftpgetfiles_%d.nlist", getpid()).c_str());
+    if (ifile.open(st_arg.listfilename) == false) {
+        logfile.write("ifile.open(%s) failed.\n", st_arg.listfilename);
         return false;
     }
 
     string str_filename;
 
     while (true) {
+        // 读取一行数据存储到 str_filename
         if (ifile.readline(str_filename) == false) {
             break;
         }
@@ -393,7 +406,7 @@ bool loadListFile() {
         if ((st_arg.ptype == 1) && (st_arg.checkmtime == true)) {
             // 获取 ftp 服务器端文件的最后一次修改时间
             if (ftp.mtime(str_filename) == false) {
-                logfile.write("ftp.mtime(%s) failed.\n", str_filename.c_str());
+                logfile.write("ftp.mtime(%s) failed.\n%s\n", str_filename.c_str(), ftp.response());
                 return false;
             }
         }
@@ -461,7 +474,7 @@ bool writeNoDownloadFile() {
 }
 
 // 把下载成功的文件记录追加到 okfilename 中
-bool appendNoDownloadFile(StFileInfo& st_file_info) {
+bool appendDownloadFile(StFileInfo& st_file_info) {
     cofile ofile;
 
     // 以追加的方式打开文件，注意第二个参数一定要填 false
