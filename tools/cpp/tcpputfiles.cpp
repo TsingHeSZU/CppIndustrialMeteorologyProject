@@ -31,6 +31,8 @@ bool parseXML(const char* str_xml_buffer);  // 把 xml 解析到 StArg 结构体
 void EXIT(int sig);         // 程序退出和信号 2、15 的处理函数
 bool activeTest();          // tcp 长连接心跳机制
 bool loginInfo(const char* argv);   // 向服务端发送登录报文，把客户端程序的参数传递给服务端
+bool tcpPutFiles();         // 文件上传的主函数，执行一次文件上传的任务
+bool ackMessage(const string& tmp_str_recv_buffer);     // 处理传输文件的响应报文（删除或者转存本地的文件）
 
 int main(int argc, char* argv[]) {
     if (argc != 3) {
@@ -74,7 +76,13 @@ int main(int argc, char* argv[]) {
     }
 
     while (true) {
-        sleep(10);
+        // 调用文件上传的主函数，执行一次文件上传的任务
+        if (tcpPutFiles() == false) {
+            logfile.write("tcpPutFiles() failed.\n");
+            EXIT(-1);
+        }
+
+        sleep(st_arg.timetvl);
 
         // 发送心跳报文
         if (activeTest() == false) {
@@ -91,7 +99,7 @@ void _help() {
 
     printf("Example: /CppIndustrialMeteorologyProject/tools/bin/procctl 20 "\
         "/CppIndustrialMeteorologyProject/tools/bin/tcpputfiles /log/idc/tcpputfiles_surfdata.log "\
-        "\"<clienttype>1</clienttype>"
+        "\"<clienttype>1</clienttype>"\
         "<ip>127.0.0.1</ip>"\
         "<port>5005</port>"\
         "<ptype>1</ptype>"\
@@ -249,5 +257,76 @@ bool loginInfo(const char* argv) {
     logfile.write("接收: %s\n", str_recv_buffer.c_str());
 
     logfile.write("login (%s, %d) success.\n", st_arg.ip, st_arg.port);
+    return true;
+}
+
+// 文件上传的主函数，执行一次文件上传的任务
+bool tcpPutFiles() {
+    cdir dir;
+
+    // 打开 st_arg.client_path 目录
+    if (dir.opendir(st_arg.client_path, st_arg.matchname, 10000, st_arg.is_child) == false) {
+        logfile.write("dir.opendir(%s) failed.\n", st_arg.client_path);
+        return false;
+    }
+
+    // 遍历目录中的每个文件
+    while (dir.readdir()) {
+        // 把文件名、修改时间、文件大小组成报文段，发送给服务端
+        sformat(str_send_buffer, "<filename>%s</filename><mtime>%s</mtime><size>%d</size>",
+            dir.m_ffilename.c_str(), dir.m_mtime.c_str(), dir.m_filesize);
+        logfile.write("str_send_buffer = %s\n", str_send_buffer.c_str());
+        if (tcp_client.write(str_send_buffer) == false) {
+            logfile.write("tcp_client.write() failed.\n");
+            return false;
+        }
+
+        // 发送文件内容
+
+        // 接收服务端的确认报文
+        if (tcp_client.read(str_recv_buffer, 20) == false) {
+            break;
+        }
+        logfile.write("str_recv_buffer = %s\n", str_recv_buffer.c_str());
+
+        // 处理服务端的确认报文（删除本地文件或把本地文件移动到备份目录）
+        ackMessage(str_recv_buffer);
+    }
+
+    return true;
+}
+
+// 处理传输文件的响应报文（删除或者转存本地的文件）
+bool ackMessage(const string& tmp_str_recv_buffer) {
+    // 服务端给的确认报文格式：<filename>%s</filename><result>ok</result>
+    string filename;    // 本地文件名
+    string result;      // 对端接收文件的结果
+    getxmlbuffer(tmp_str_recv_buffer, "filename", filename);
+    getxmlbuffer(tmp_str_recv_buffer, "result", result);
+
+    // 如果服务端接收文件不成功，直接返回（下次执行文件传输任务时将会重传）
+    if (result != "ok") {
+        return true;
+    }
+
+    // 如果 st_arg.ptype == 1, 删除文件
+    if (st_arg.ptype == 1) {
+        if (remove(filename.c_str()) != 0) {
+            logfile.write("remove(%s) failed.\n", filename.c_str());
+            return false;
+        }
+    }
+
+    // 如果 st_arg.ptype == 2, 移动到备份目录
+    if (st_arg.ptype == 2) {
+        // 生成转存后的备份目录文件名，例如：/tmp/client/2.xml /tmp/clientbak/2.xml
+        string bak_filename = filename;
+        replacestr(bak_filename, st_arg.client_path, st_arg.client_pathbak, false);     // 最后一个参数为 false
+        if (renamefile(filename, bak_filename) == false) {
+            logfile.write("renamefile(%s,%s) failed.\n", filename.c_str(), bak_filename.c_str());
+            return false;
+        }
+    }
+
     return true;
 }

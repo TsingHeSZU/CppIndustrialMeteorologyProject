@@ -28,14 +28,15 @@ StArg st_arg;               // 存储客户端程序运行参数的结构体对�
 
 void FatherEXIT(int sig);   // 父进程退出函数
 void ChildEXIT(int sig);    // 子进程退出函数
+bool clientLogin();         // 处理登录客户端的登录报文   
 void recvFilesMain();       // 上传文件的主函数
-bool clientLogin();         // 处理登录客户端的登录报文       
+
 
 int main(int argc, char* argv[]) {
     if (argc != 3) {
         printf("Using: ./tcpfileserver port logfile\n");
-        printf("Example: ./tcpfileserver 5005 /log/idc/tcpfileserver.log\n");
-        printf("    /CppIndustrialMeteorologyProject/tools/bin/procctl 10 "\
+        // printf("Example: ./tcpfileserver 5005 /log/idc/tcpfileserver.log\n");
+        printf("Example: /CppIndustrialMeteorologyProject/tools/bin/procctl 10 "\
             "/CppIndustrialMeteorologyProject/tools/bin/tcpfileserver 5005 /log/idc/tcpfileserver.log\n\n");
         return -1;
     }
@@ -130,28 +131,6 @@ void ChildEXIT(int sig) {
     exit(0);
 }
 
-// 上传文件的主函数
-void recvFilesMain() {
-    while (true) {
-        // 接收客户端的报文
-        if (tcp_server.read(str_recv_buffer, 60) == false) {
-            logfile.write("tcp_server.read() failed.\n");
-            return;
-        }
-        logfile.write("str_recv_buffer = %s\n", str_recv_buffer.c_str());
-
-        // 处理 tcp 长连接心跳机制的报文
-        if (str_recv_buffer == "<activetest>ok</activetest>") {
-            str_send_buffer = "ok";
-            logfile.write("str_send_buffer = %s\n", str_send_buffer.c_str());
-            if (tcp_server.write(str_send_buffer) == false) {
-                logfile.write("tcp_server.write() failed.\n");
-                return;
-            }
-        }
-    }
-}
-
 // 处理登录客户端的登录报文
 bool clientLogin() {
     // 接收客户端的登录报文
@@ -183,3 +162,49 @@ bool clientLogin() {
     logfile.write("%s login %s.\n%s\n", tcp_server.getip(), str_send_buffer.c_str(), str_recv_buffer.c_str());
     return true;
 }
+
+// 上传文件的主函数
+void recvFilesMain() {
+    while (true) {
+        // 接收客户端的报文
+        if (tcp_server.read(str_recv_buffer, 60) == false) {
+            logfile.write("tcp_server.read() failed.\n");
+            return;
+        }
+        logfile.write("str_recv_buffer = %s\n", str_recv_buffer.c_str());
+
+        // 处理 tcp 长连接心跳机制的报文
+        if (str_recv_buffer == "<activetest>ok</activetest>") {
+            str_send_buffer = "ok";
+            logfile.write("str_send_buffer = %s\n", str_send_buffer.c_str());
+            if (tcp_server.write(str_send_buffer) == false) {
+                logfile.write("tcp_server.write() failed.\n");
+                return;
+            }
+        }
+
+        // 处理上传文件的请求报文，如果 string::find() 返回 string::npos 说明没有匹配到要找的字符串
+        if (str_recv_buffer.find("<filename>") != string::npos) {
+            // 解析上传文件请求报文的 xml
+            string client_filename;     // 客户端的文件名
+            string m_time;              // 文件的时间
+            int file_size = 0;          // 文件大小
+            getxmlbuffer(str_recv_buffer, "filename", client_filename);
+            getxmlbuffer(str_recv_buffer, "mtime", m_time);
+            getxmlbuffer(str_recv_buffer, "size", file_size);
+
+            // 接收文件的内容
+
+            // 成功接收了文件的内容，拼接确认报文的内容
+            sformat(str_send_buffer, "<filename>%s</filename><result>ok</result>", client_filename.c_str());
+
+            // 把确认报文发送给客户端
+            logfile.write("str_send_buffer = %s\n", str_send_buffer.c_str());
+            if (tcp_server.write(str_send_buffer) == false) {
+                logfile.write("tcp_server.write() failed.\n");
+                return;
+            }
+        }
+    }
+}
+
