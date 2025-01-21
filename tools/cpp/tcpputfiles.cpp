@@ -33,6 +33,7 @@ bool activeTest();          // tcp 长连接心跳机制
 bool loginInfo(const char* argv);   // 向服务端发送登录报文，把客户端程序的参数传递给服务端
 bool tcpPutFiles();         // 文件上传的主函数，执行一次文件上传的任务
 bool ackMessage(const string& tmp_str_recv_buffer);     // 处理传输文件的响应报文（删除或者转存本地的文件）
+bool sendFile(const string& filename, const int filesize);   // 把文件的内容发送给对端
 
 int main(int argc, char* argv[]) {
     if (argc != 3) {
@@ -109,7 +110,7 @@ void _help() {
         "<matchname>*.xml,*.txt,*.csv</matchname>"\
         "<serverpath>/tmp/server</serverpath>"\
         "<timetvl>10</timetvl>"\
-        "<timeout>50</timeout>"\
+        "<timeout>65</timeout>"\
         "<pname>tcpputfiles_surfdata</pname>\"\n\n");
 
     printf("本程序是数据中心的公共功能模块, 采用tcp协议把文件上传给服务端。\n");
@@ -282,6 +283,15 @@ bool tcpPutFiles() {
         }
 
         // 发送文件内容
+        logfile.write("send %s(%d)...", dir.m_ffilename.c_str(), dir.m_filesize);
+        if (sendFile(dir.m_ffilename, dir.m_filesize) == false) {
+            logfile << "failed.\n";
+            tcp_client.close();
+            return false;
+        }
+        else {
+            logfile << "ok.\n";
+        }
 
         // 接收服务端的确认报文
         if (tcp_client.read(str_recv_buffer, 20) == false) {
@@ -327,6 +337,45 @@ bool ackMessage(const string& tmp_str_recv_buffer) {
             return false;
         }
     }
+    return true;
+}
 
+// 把文件的内容发送给对端
+bool sendFile(const string& filename, const int filesize) {
+    int on_read = 0;        // 每次打算从文件中读取的字节数
+    char buffer[1000];      // 存放读取数据的 buffer，buffer 的大小可以参考硬盘一次读取数据量（4k 为宜）
+    int total_bytes = 0;    // 从文件中已读取的字节总数
+    cifile ifile;           // 读取文件对象
+
+    // 必须以二进制的方式操作文件
+    if (ifile.open(filename, ios::binary | ios::in) == false) {
+        logfile.write("ifile.open(%s, ...) failed.\n", filename.c_str());
+        return false;
+    }
+
+    while (true) {
+        memset(buffer, 0, sizeof(buffer));
+        if (filesize - total_bytes > 1000) {
+            on_read = 1000;
+        }
+        else {
+            on_read = filesize - total_bytes;
+        }
+
+        // 从文件中读数据
+        ifile.read(buffer, on_read);
+
+        // 把读取到的数据发送给对端
+        if (tcp_client.write(buffer, on_read) == false) {
+            logfile.write("tcp_client.write() failed.\n");
+            return false;
+        }
+
+        // 计算文件已读取的字节总数，如果文件已读完，跳出循环
+        total_bytes = total_bytes + on_read;
+        if (total_bytes == filesize) {
+            break;
+        }
+    }
     return true;
 }

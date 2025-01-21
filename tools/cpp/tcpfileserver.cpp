@@ -29,7 +29,8 @@ StArg st_arg;               // 存储客户端程序运行参数的结构体对�
 void FatherEXIT(int sig);   // 父进程退出函数
 void ChildEXIT(int sig);    // 子进程退出函数
 bool clientLogin();         // 处理登录客户端的登录报文   
-void recvFilesMain();       // 上传文件的主函数
+void recvFilesMain();       // 处理客户端上传文件的主函数
+bool recvFilesContent(const string& filename, const string& m_time, int file_size);    // 处理客户端上传文件的内容
 
 
 int main(int argc, char* argv[]) {
@@ -194,9 +195,22 @@ void recvFilesMain() {
             getxmlbuffer(str_recv_buffer, "size", file_size);
 
             // 接收文件的内容
-
-            // 成功接收了文件的内容，拼接确认报文的内容
-            sformat(str_send_buffer, "<filename>%s</filename><result>ok</result>", client_filename.c_str());
+            // st_arg.client_path = /tmp/client
+            // st_arg.server_path = /tmp/server
+            // 客户端的文件名是: client_filename = /tmp/client/aaa/1.txt
+            // 服务端的文件名是: server_filename = /tmp/server/aaa/1.txt
+            string server_filename;     // 服务端的文件名
+            server_filename = client_filename;
+            replacestr(server_filename, st_arg.client_path, st_arg.server_path, false);
+            logfile.write("recv %s(%d)...", server_filename.c_str(), filesize);
+            if (recvFilesContent(server_filename, m_time, file_size) == true) {
+                logfile << "ok.\n";
+                sformat(str_send_buffer, "<filename>%s</filename><result>ok</result>", client_filename.c_str());
+            }
+            else {
+                logfile << "failed.\n";
+                sformat(str_send_buffer, "<filename>%s</filename><result>failed</result>", client_filename.c_str());
+            }
 
             // 把确认报文发送给客户端
             logfile.write("str_send_buffer = %s\n", str_send_buffer.c_str());
@@ -206,5 +220,54 @@ void recvFilesMain() {
             }
         }
     }
+}
+
+// 接收客户端上传文件的内容
+bool recvFilesContent(const string& filename, const string& m_time, int filesize) {
+    int total_bytes = 0;    // 已接收文件的总字节数
+    int on_read = 0;        // 本次打算接收的字节数
+    char buffer[1000];      // 接收文件内容的缓冲区
+    cofile ofile;           // 写入文件的对象
+
+    // 必须以二进制的方式操作文件
+    if (ofile.open(filename, true, ios::out | ios::binary) == false) {
+        logfile.write("ofile.open(%s, ...) failed.\n", filename.c_str());
+        return false;
+    }
+
+    while (true) {
+        memset(buffer, 0, sizeof(buffer));
+
+        // 计算本次应该接收的字节数
+        if (filesize - total_bytes > 1000) {
+            on_read = 1000;
+        }
+        else {
+            on_read = filesize - total_bytes;
+        }
+
+        // 接收文件内容
+        if (tcp_server.read(buffer, on_read) == false) {
+            logfile.write("tcp_server.read() failed.\n");
+            return false;
+        }
+
+        // 把接收到的内容写入文件
+        ofile.write(buffer, on_read);
+
+        // 计算已接收文件的总字节数，如果文件接收完，跳出循环
+        total_bytes = total_bytes + on_read;
+
+        if (total_bytes == filesize) {
+            break;
+        }
+    }
+
+    // 关闭文件，把临时文件改为正式文件
+    ofile.closeandrename();
+    // 文件的修改时间与客户端一致
+    setmtime(filename, m_time);
+
+    return true;
 }
 
