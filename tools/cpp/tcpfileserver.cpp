@@ -4,14 +4,32 @@
 #include "/CppIndustrialMeteorologyProject/public/_public.h"
 using namespace idc;
 
+// 程序运行参数的结构体（xml部分）
+typedef struct StArg {
+    int client_type;            // 客户端类型，1-上传文件，2-下载文件，本程序固定填1
+    char ip[31];                // 服务端的IP地址
+    int port;                   // 服务端的端口
+    char client_path[256];      // 本地文件存放的根目录: /data /data/aaa /data/bbb
+    int ptype;                  // 文件上传成功后本地文件的处理方式：1-删除文件，2-移动到备份目录
+    char client_pathbak[256];   // 文件成功上传后，本地文件备份的根目录，当 ptype==2 时有效。
+    bool is_child;              // 是否上传 client_path 目录下各级子目录的文件，true-是，false-否
+    char matchname[256];        // 待上传文件名的匹配规则，如"*.TXT,*.XML"
+    char server_path[256];      // 服务端文件存放的根目录。/data1 /data1/aaa /data1/bbb
+    int timetvl;                // 扫描本地目录文件的时间间隔（执行文件上传任务的时间间隔，程序休眠），单位：秒
+    int timeout;                // 进程心跳的超时时间
+    char pname[51];             // 进程名，建议用"tcpputfiles_后缀"的方式 
+}StArg;
+
 clogfile logfile;           // 服务程序的运行日志
 ctcpserver tcp_server;      // 创建 tcp 通信的服务端对象
 string str_send_buffer;     // 发送报文的 buffer
 string str_recv_buffer;     // 接收报文的 buffer
+StArg st_arg;               // 存储客户端程序运行参数的结构体对象
 
 void FatherEXIT(int sig);   // 父进程退出函数
 void ChildEXIT(int sig);    // 子进程退出函数
-void recvFilesMain();       // 上传文件的主函数       
+void recvFilesMain();       // 上传文件的主函数
+bool clientLogin();         // 处理登录客户端的登录报文       
 
 int main(int argc, char* argv[]) {
     if (argc != 3) {
@@ -68,7 +86,19 @@ int main(int argc, char* argv[]) {
 
         // 子进程与客户端进行通信，处理业务
 
-        recvFilesMain();    // 上传文件的主函数
+        // 处理客户端的登录报文
+        if (clientLogin() == false) {
+            ChildEXIT(-1);
+        }
+
+        if (st_arg.client_type == 1) {
+            // 如果 st_arg.client_type == 1, 调用上传文件的主函数
+            recvFilesMain();
+        }
+        else if (st_arg.client_type == 2) {
+            // 如果 st_arg.client_type == 2, 调用下载文件的主函数
+            //sendFilesMain();
+        }
 
         ChildEXIT(0);
     }
@@ -120,4 +150,36 @@ void recvFilesMain() {
             }
         }
     }
+}
+
+// 处理登录客户端的登录报文
+bool clientLogin() {
+    // 接收客户端的登录报文
+    if (tcp_server.read(str_recv_buffer, 20) == false) {
+        logfile.write("tcp_server.read() failed.\n");
+        return false;
+    }
+    logfile.write("str_recv_buffer = %s\n", str_recv_buffer.c_str());
+
+    // 解析客户端的登录报文，不需要对参数做合法性判断，客户端已经判断过了
+    memset(&st_arg, 0, sizeof(StArg));
+    getxmlbuffer(str_recv_buffer, "clienttype", st_arg.client_type);
+    getxmlbuffer(str_recv_buffer, "clientpath", st_arg.client_path);
+    getxmlbuffer(str_recv_buffer, "serverpath", st_arg.server_path);
+
+    // 为什么要判断客户端的类型？不是只有 1 和 2 吗？防止非法的连接请求
+    if (st_arg.client_type != 1 && st_arg.client_type != 2) {
+        str_send_buffer = "failed";
+    }
+    else {
+        str_send_buffer = "ok";
+    }
+
+    if (tcp_server.write(str_send_buffer) == false) {
+        logfile.write("tcp_server.write(%s) failed.\n", str_send_buffer.c_str());
+        return false;
+    }
+
+    logfile.write("%s login %s.\n%s\n", tcp_server.getip(), str_send_buffer.c_str(), str_recv_buffer.c_str());
+    return true;
 }
