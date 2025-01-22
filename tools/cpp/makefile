@@ -8,7 +8,7 @@ PUBCPP = /CppIndustrialMeteorologyProject/public/_public.cpp
 CFLAGS = -g
 # CLFAGS = -O2
 
-all: procctl checkproc deletefiles gzipfiles ftpgetfiles ftpputfiles tcpfileserver tcpputfiles tcpputfiles_io_multi
+all: procctl checkproc deletefiles gzipfiles ftpgetfiles ftpputfiles tcpfileserver tcpputfiles tcpputfiles_io_multi tcpgetfiles
 procctl: procctl.cpp
 	g++ -g -o procctl procctl.cpp
 	cp -f procctl ../bin/.
@@ -43,7 +43,11 @@ tcpputfiles: tcpputfiles.cpp
 
 tcpputfiles_io_multi: tcpputfiles_io_multi.cpp
 	g++ $(CFLAGS) tcpputfiles_io_multi.cpp -o tcpputfiles_io_multi $(PUBINCL) $(PUBCPP)
-	cp -f tcpputfiles_io_multi ../bin/.	
+	cp -f tcpputfiles_io_multi ../bin/.
+
+tcpgetfiles: tcpgetfiles.cpp
+	g++ $(CFLAGS) tcpgetfiles.cpp -o tcpgetfiles $(PUBINCL) $(PUBCPP)
+	cp -f tcpgetfiles ../bin/.	
 
 clean:
-	rm -rf procctl checkproc deletefiles gzipfiles ftpgetfiles ftpputfiles tcpfileserver tcpputfiles tcpputfiles_io_multi 
+	rm -rf procctl checkproc deletefiles gzipfiles ftpgetfiles ftpputfiles tcpfileserver tcpputfiles tcpputfiles_io_multi tcpgetfiles

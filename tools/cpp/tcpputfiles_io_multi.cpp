@@ -1,5 +1,5 @@
 /*
-    使用 tcp 协议，实现文件上传的客户端
+    使用 tcp 协议，实现上传文件的客户端
 */
 #include "/CppIndustrialMeteorologyProject/public/_public.h"
 using namespace idc;
@@ -15,13 +15,13 @@ typedef struct StArg {
     bool is_child;              // 是否上传 client_path 目录下各级子目录的文件，true-是，false-否
     char matchname[256];        // 待上传文件名的匹配规则，如"*.TXT,*.XML"
     char server_path[256];      // 服务端文件存放的根目录。/data1 /data1/aaa /data1/bbb
-    int timetvl;                // 扫描本地目录文件的时间间隔（执行文件上传任务的时间间隔，程序休眠），单位：秒
+    int timetvl;                // 不上传文件时，客户端程序发送心跳报文的时间间隔，单位：秒
     int timeout;                // 进程心跳的超时时间
     char pname[51];             // 进程名，建议用"tcpputfiles_io_multi_后缀"的方式 
 }StArg;
 
-StArg st_arg;               // 程序运行参数（xml）的结构体对象
 clogfile logfile;           // 日志对象
+StArg st_arg;               // 程序运行参数（xml）的结构体对象
 ctcpclient tcp_client;      // 创建 tcp 通讯的客户端对象
 string str_send_buffer;     // 发送报文的 buffer
 string str_recv_buffer;     // 接收报文的 buffer
@@ -32,9 +32,10 @@ bool parseXML(const char* str_xml_buffer);  // 把 xml 解析到 StArg 结构体
 void EXIT(int sig);         // 程序退出和信号 2、15 的处理函数
 bool activeTest();          // tcp 长连接心跳机制
 bool loginInfo(const char* argv);   // 向服务端发送登录报文，把客户端程序的参数传递给服务端
-bool tcpPutFiles(bool& bcontinue);         // 文件上传的主函数，执行一次文件上传的任务
-bool ackMessage(const string& tmp_str_recv_buffer);     // 处理传输文件的响应报文（删除或者转存本地的文件）
+bool tcpPutFiles(bool& bcontinue);  // 文件上传的主函数，执行一次文件上传的任务
 bool sendFile(const string& filename, const int filesize);   // 把文件的内容发送给对端
+bool ackMessage(const string& tmp_str_recv_buffer);     // 处理传输文件的响应报文（删除或者转存本地的文件）
+
 
 int main(int argc, char* argv[]) {
     if (argc != 3) {
@@ -125,7 +126,7 @@ void _help() {
         "<matchname>*.xml,*.txt,*.csv,*.json</matchname>"\
         "<serverpath>/tmp/server</serverpath>"\
         "<timetvl>10</timetvl>"\
-        "<timeout>65</timeout>"\
+        "<timeout>50</timeout>"\
         "<pname>tcpputfiles_io_multi_surfdata</pname>\"\n\n");
 
     printf("本程序是数据中心的公共功能模块, 采用tcp协议把文件上传给服务端。\n");
@@ -140,7 +141,8 @@ void _help() {
     printf("matchname: 待上传文件名的匹配规则，如\"*.TXT,*.XML\";\n");
     printf("serverpath: 服务端文件存放的根目录; \n");
     printf("timetvl: 扫描本地目录文件的时间间隔, 单位: 秒, 取值在 1-30 之间;\n");
-    printf("timeout: 本程序的超时时间, 单位: 秒, 视文件大小和网络带宽而定, 建议设置50以上。\n");
+    printf("timeout: 本程序的超时时间, 单位: 秒, 视文件大小和网络带宽而定, 建议设置50以上;\n");
+    printf("pname: 本程序的进程名。\n");
 }
 
 // 把 xml 解析到 StArg 结构体变量中
@@ -348,40 +350,6 @@ bool tcpPutFiles(bool& bcontinue) {
     return true;
 }
 
-// 处理传输文件的响应报文（删除或者转存本地的文件）
-bool ackMessage(const string& tmp_str_recv_buffer) {
-    // 服务端给的确认报文格式：<filename>%s</filename><result>ok</result>
-    string filename;    // 本地文件名
-    string result;      // 对端接收文件的结果
-    getxmlbuffer(tmp_str_recv_buffer, "filename", filename);
-    getxmlbuffer(tmp_str_recv_buffer, "result", result);
-
-    // 如果服务端接收文件不成功，直接返回（下次执行文件传输任务时将会重传）
-    if (result != "ok") {
-        return true;
-    }
-
-    // 如果 st_arg.ptype == 1, 删除文件
-    if (st_arg.ptype == 1) {
-        if (remove(filename.c_str()) != 0) {
-            logfile.write("remove(%s) failed.\n", filename.c_str());
-            return false;
-        }
-    }
-
-    // 如果 st_arg.ptype == 2, 移动到备份目录
-    if (st_arg.ptype == 2) {
-        // 生成转存后的备份目录文件名，例如：/tmp/client/2.xml /tmp/clientbak/2.xml
-        string bak_filename = filename;
-        replacestr(bak_filename, st_arg.client_path, st_arg.client_pathbak, false);     // 最后一个参数为 false
-        if (renamefile(filename, bak_filename) == false) {
-            logfile.write("renamefile(%s,%s) failed.\n", filename.c_str(), bak_filename.c_str());
-            return false;
-        }
-    }
-    return true;
-}
-
 // 把文件的内容发送给对端
 bool sendFile(const string& filename, const int filesize) {
     int on_read = 0;        // 每次打算从文件中读取的字节数
@@ -417,6 +385,40 @@ bool sendFile(const string& filename, const int filesize) {
         total_bytes = total_bytes + on_read;
         if (total_bytes == filesize) {
             break;
+        }
+    }
+    return true;
+}
+
+// 处理传输文件的响应报文（删除或者转存本地的文件）
+bool ackMessage(const string& tmp_str_recv_buffer) {
+    // 服务端给的确认报文格式：<filename>%s</filename><result>ok</result>
+    string filename;    // 本地文件名
+    string result;      // 对端接收文件的结果
+    getxmlbuffer(tmp_str_recv_buffer, "filename", filename);
+    getxmlbuffer(tmp_str_recv_buffer, "result", result);
+
+    // 如果服务端接收文件不成功，直接返回（下次执行文件传输任务时将会重传）
+    if (result != "ok") {
+        return true;
+    }
+
+    // 如果 st_arg.ptype == 1, 删除文件
+    if (st_arg.ptype == 1) {
+        if (remove(filename.c_str()) != 0) {
+            logfile.write("remove(%s) failed.\n", filename.c_str());
+            return false;
+        }
+    }
+
+    // 如果 st_arg.ptype == 2, 移动到备份目录
+    if (st_arg.ptype == 2) {
+        // 生成转存后的备份目录文件名，例如：/tmp/client/2.xml /tmp/clientbak/2.xml
+        string bak_filename = filename;
+        replacestr(bak_filename, st_arg.client_path, st_arg.client_pathbak, false);     // 最后一个参数为 false
+        if (renamefile(filename, bak_filename) == false) {
+            logfile.write("renamefile(%s,%s) failed.\n", filename.c_str(), bak_filename.c_str());
+            return false;
         }
     }
     return true;

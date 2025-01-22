@@ -24,3 +24,15 @@
 
 # 清理 /tmp/ftpputtest 目录中 0.04 天之前的文件。
 /CppIndustrialMeteorologyProject/tools/bin/procctl 300 /CppIndustrialMeteorologyProject/tools/bin/deletefiles /tmp/ftpputtest "*" 0.04
+
+# 文件传输的服务端程序。
+/CppIndustrialMeteorologyProject/tools/bin/procctl 10 /CppIndustrialMeteorologyProject/tools/bin/tcpfileserver 5005 /log/idc/tcpfileserver.log
+
+# 把目录 /tmp/ftpputtest 中的文件上传到 /tmp/tcpputtest 目录中。
+/CppIndustrialMeteorologyProject/tools/bin/procctl 20 /CppIndustrialMeteorologyProject/tools/bin/tcpputfiles_io_multi /log/idc/tcpputfiles_io_multi_surfdata.log "<clienttype>1</clienttype><ip>127.0.0.1</ip><port>5005</port><ptype>1</ptype><clientpath>/tmp/ftpputtest</clientpath><clientpathbak>/tmp/ftpputtesst_tcp_bak</clientpathbak><ischild>true</ischild><matchname>*.xml,*.txt,*.csv,*.json</matchname><serverpath>/tmp/tcpputtest</serverpath><timetvl>10</timetvl><timeout>50</timeout><pname>tcpputfiles_io_multi_surfdata</pname>"
+
+# 把目录 /tmp/tcpputtest 中的文件下载到 /tmp/tcpgettest 目录中。
+/CppIndustrialMeteorologyProject/tools/bin/procctl 20 /CppIndustrialMeteorologyProject/tools/bin/tcpgetfiles /log/idc/tcpgetfiles_surfdata.log "<clienttype>2</clienttype><ip>127.0.0.1</ip><port>5005</port><ptype>1</ptype><serverpath>/tmp/tcpputtest</serverpath><serverpathbak>/tmp/tcpputtest_tcp_bak</serverpathbak><ischild>true</ischild><clientpath>/tmp/tcpgettest</clientpath><matchname>*.xml,*.txt,*.csv,*.json</matchname><timetvl>10</timetvl><timeout>50</timeout><pname>tcpgetfiles_surfdata</pname>"
+
+# 清理 /tmp/tcpgettest 目录中的历史数据文件。
+/CppIndustrialMeteorologyProject/tools/bin/procctl 300 /CppIndustrialMeteorologyProject/tools/bin/deletefiles /tmp/tcpgettest "*" 0.02
