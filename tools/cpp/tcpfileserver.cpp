@@ -25,10 +25,11 @@ ctcpserver tcp_server;      // 创建 tcp 通信的服务端对象
 string str_send_buffer;     // 发送报文的 buffer
 string str_recv_buffer;     // 接收报文的 buffer
 StArg st_arg;               // 存储客户端程序运行参数的结构体对象
+Cpactive pactive;           // 进程心跳
 
 void FatherEXIT(int sig);   // 父进程退出函数
 void ChildEXIT(int sig);    // 子进程退出函数
-bool clientLogin();         // 处理登录客户端的登录报文   
+bool clientLogin();         // 处理客户端的登录报文，登录的作用是得到客户端程序的运行参数   
 void recvFilesMain();       // 处理客户端上传文件的主函数
 bool recvFilesContent(const string& filename, const string& m_time, int file_size);    // 处理客户端上传文件的内容
 
@@ -65,7 +66,7 @@ int main(int argc, char* argv[]) {
     }
 
     while (true) {
-        // 等待客户端的连接请求
+        // 等待客户端的连接请求，accept() 函数会一直阻塞，所以不用将父进程信息加入进程心跳的共享内存中
         if (tcp_server.accept() == false) {
             logfile.write("tcp_server.accept() failed.\n");
             FatherEXIT(-1);
@@ -87,11 +88,15 @@ int main(int argc, char* argv[]) {
         tcp_server.closelisten();
 
         // 子进程与客户端进行通信，处理业务
-
         // 处理客户端的登录报文
         if (clientLogin() == false) {
+            logfile.write("clientLogin(%s) failed.\n", st_arg.ip);
             ChildEXIT(-1);
         }
+
+        // 把进程的心跳信息写入共享内存（与客户端程序心跳信息保持一致，所以是在 clientLogin() 之后执行）
+        // 每个子进程有自己的心跳
+        pactive.addProcInfo(st_arg.timeout, st_arg.pname);
 
         if (st_arg.client_type == 1) {
             // 如果 st_arg.client_type == 1, 调用上传文件的主函数
@@ -132,20 +137,27 @@ void ChildEXIT(int sig) {
     exit(0);
 }
 
-// 处理登录客户端的登录报文
+// 处理客户端的登录报文，登录的作用是得到客户端程序的运行参数  
 bool clientLogin() {
     // 接收客户端的登录报文
-    if (tcp_server.read(str_recv_buffer, 20) == false) {
+    if (tcp_server.read(str_recv_buffer, 10) == false) {
         logfile.write("tcp_server.read() failed.\n");
         return false;
     }
-    logfile.write("str_recv_buffer = %s\n", str_recv_buffer.c_str());
+    // logfile.write("str_recv_buffer = %s\n", str_recv_buffer.c_str());
 
     // 解析客户端的登录报文，不需要对参数做合法性判断，客户端已经判断过了
     memset(&st_arg, 0, sizeof(StArg));
     getxmlbuffer(str_recv_buffer, "clienttype", st_arg.client_type);
     getxmlbuffer(str_recv_buffer, "clientpath", st_arg.client_path);
     getxmlbuffer(str_recv_buffer, "serverpath", st_arg.server_path);
+
+    // 客户端程序不上传文件时，发送心跳报文的周期，保证 TCP 连接一直不断开
+    getxmlbuffer(str_recv_buffer, "timetvl", st_arg.timetvl);
+    // 客户端程序的进程心跳超时时间   
+    getxmlbuffer(str_recv_buffer, "timeout", st_arg.timeout);
+    // 客户端程序的进程名
+    getxmlbuffer(str_recv_buffer, "pname", st_arg.pname);
 
     // 为什么要判断客户端的类型？不是只有 1 和 2 吗？防止非法的连接请求
     if (st_arg.client_type != 1 && st_arg.client_type != 2) {
@@ -160,24 +172,27 @@ bool clientLogin() {
         return false;
     }
 
-    logfile.write("%s login %s.\n%s\n", tcp_server.getip(), str_send_buffer.c_str(), str_recv_buffer.c_str());
+    logfile.write("%s login %s.\n", tcp_server.getip(), str_send_buffer.c_str());
     return true;
 }
 
-// 上传文件的主函数
+// 处理客户端上传文件的主函数
 void recvFilesMain() {
     while (true) {
+        // 子进程每处理一次上传的文件或者心跳报文，更新进程心跳
+        pactive.updateAtime();
+
         // 接收客户端的报文
-        if (tcp_server.read(str_recv_buffer, 60) == false) {
+        if (tcp_server.read(str_recv_buffer, st_arg.timetvl + 10) == false) {
             logfile.write("tcp_server.read() failed.\n");
             return;
         }
-        logfile.write("str_recv_buffer = %s\n", str_recv_buffer.c_str());
+        // logfile.write("str_recv_buffer = %s\n", str_recv_buffer.c_str());
 
         // 处理 tcp 长连接心跳机制的报文
         if (str_recv_buffer == "<activetest>ok</activetest>") {
             str_send_buffer = "ok";
-            logfile.write("str_send_buffer = %s\n", str_send_buffer.c_str());
+            // logfile.write("str_send_buffer = %s\n", str_send_buffer.c_str());
             if (tcp_server.write(str_send_buffer) == false) {
                 logfile.write("tcp_server.write() failed.\n");
                 return;
@@ -213,7 +228,7 @@ void recvFilesMain() {
             }
 
             // 把确认报文发送给客户端
-            logfile.write("str_send_buffer = %s\n", str_send_buffer.c_str());
+            // logfile.write("str_send_buffer = %s\n", str_send_buffer.c_str());
             if (tcp_server.write(str_send_buffer) == false) {
                 logfile.write("tcp_server.write() failed.\n");
                 return;

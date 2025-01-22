@@ -17,7 +17,7 @@ typedef struct StArg {
     char server_path[256];      // 服务端文件存放的根目录。/data1 /data1/aaa /data1/bbb
     int timetvl;                // 扫描本地目录文件的时间间隔（执行文件上传任务的时间间隔，程序休眠），单位：秒
     int timeout;                // 进程心跳的超时时间
-    char pname[51];             // 进程名，建议用"tcpputfiles_后缀"的方式 
+    char pname[51];             // 进程名，建议用"tcpputfiles_io_multi_后缀"的方式 
 }StArg;
 
 StArg st_arg;               // 程序运行参数（xml）的结构体对象
@@ -25,13 +25,14 @@ clogfile logfile;           // 日志对象
 ctcpclient tcp_client;      // 创建 tcp 通讯的客户端对象
 string str_send_buffer;     // 发送报文的 buffer
 string str_recv_buffer;     // 接收报文的 buffer
+Cpactive pactive;           // 进程心跳
 
 void _help();               // 程序帮助文档
 bool parseXML(const char* str_xml_buffer);  // 把 xml 解析到 StArg 结构体变量中
 void EXIT(int sig);         // 程序退出和信号 2、15 的处理函数
 bool activeTest();          // tcp 长连接心跳机制
 bool loginInfo(const char* argv);   // 向服务端发送登录报文，把客户端程序的参数传递给服务端
-bool tcpPutFiles();         // 文件上传的主函数，执行一次文件上传的任务
+bool tcpPutFiles(bool& bcontinue);         // 文件上传的主函数，执行一次文件上传的任务
 bool ackMessage(const string& tmp_str_recv_buffer);     // 处理传输文件的响应报文（删除或者转存本地的文件）
 bool sendFile(const string& filename, const int filesize);   // 把文件的内容发送给对端
 
@@ -64,6 +65,9 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
+    // 把进程心跳信息写入共享内存
+    pactive.addProcInfo(st_arg.timeout, st_arg.pname);
+
     // 向服务端发起连接请求
     if (tcp_client.connect(st_arg.ip, st_arg.port) == false) {
         logfile.write("tcp_client.connect(%s, %d) failed.\n", st_arg.ip, st_arg.port);
@@ -76,30 +80,41 @@ int main(int argc, char* argv[]) {
         EXIT(-1);
     }
 
+    // 如果调用了 tcpPutFiles() 发送了文件，bcontinue 为 true，否则为 false，初始化为 true
+    bool bcontinue = true;
+
     while (true) {
         // 调用文件上传的主函数，执行一次文件上传的任务
-        if (tcpPutFiles() == false) {
+        if (tcpPutFiles(bcontinue) == false) {
             logfile.write("tcpPutFiles() failed.\n");
             EXIT(-1);
         }
 
-        sleep(st_arg.timetvl);
-
-        // 发送心跳报文
-        if (activeTest() == false) {
-            break;
+        // 如果刚才执行文件上传任务的时候，上传了文件，那么，在上传的过程中，可能有新的文件陆续生成
+        // 为了保证文件被尽快上传，进程不休眠（没有执行文件上传任务的时候，进程才休眠）
+        if (bcontinue == false) {
+            // 当客户端没有上传文件时，为了保证 TCP 长连接不断开（当服务端 read 一直没有读到数据时，会主动断开），需要发送心跳报文
+            sleep(st_arg.timetvl);
+            // 发送心跳报文
+            if (activeTest() == false) {
+                break;
+            }
         }
+
+        // 执行一次文件上传任务，更新进程的心跳信息 
+        pactive.updateAtime();
     }
+
     EXIT(0);
 }
 
 // 程序帮助文档
 void _help() {
     printf("\n");
-    printf("Using: /CppIndustrialMeteorologyProject/tools/bin/tcpputfiles logfilename xmlbuffer\n\n");
+    printf("Using: /CppIndustrialMeteorologyProject/tools/bin/tcpputfiles_io_multi logfilename xmlbuffer\n\n");
 
     printf("Example: /CppIndustrialMeteorologyProject/tools/bin/procctl 20 "\
-        "/CppIndustrialMeteorologyProject/tools/bin/tcpputfiles /log/idc/tcpputfiles_surfdata.log "\
+        "/CppIndustrialMeteorologyProject/tools/bin/tcpputfiles_io_multi /log/idc/tcpputfiles_io_multi_surfdata.log "\
         "\"<clienttype>1</clienttype>"\
         "<ip>127.0.0.1</ip>"\
         "<port>5005</port>"\
@@ -107,11 +122,11 @@ void _help() {
         "<clientpath>/tmp/client</clientpath>"\
         "<clientpathbak>/tmp/client_tcp_bak</clientpathbak>"\
         "<ischild>true</ischild>"\
-        "<matchname>*.xml,*.txt,*.csv</matchname>"\
+        "<matchname>*.xml,*.txt,*.csv,*.json</matchname>"\
         "<serverpath>/tmp/server</serverpath>"\
         "<timetvl>10</timetvl>"\
         "<timeout>65</timeout>"\
-        "<pname>tcpputfiles_surfdata</pname>\"\n\n");
+        "<pname>tcpputfiles_io_multi_surfdata</pname>\"\n\n");
 
     printf("本程序是数据中心的公共功能模块, 采用tcp协议把文件上传给服务端。\n");
     printf("logfilename: 本程序运行的日志文件; \n");
@@ -233,8 +248,8 @@ bool activeTest() {
     // logfile.write("发送: %s\n", str_send_buffer.c_str());
 
     // 接收服务端的回应报文
-    if (tcp_client.read(str_recv_buffer, 60) == false) {
-        printf("tcp_client.read(%s, 60) failed.\n", str_recv_buffer.c_str());
+    if (tcp_client.read(str_recv_buffer, 10) == false) {
+        printf("tcp_client.read(%s, 10) failed.\n", str_recv_buffer.c_str());
         return false;
     }
     // logfile.write("接收: %s\n", str_recv_buffer.c_str());
@@ -251,7 +266,7 @@ bool loginInfo(const char* argv) {
     }
 
     // 接收服务端的回应报文
-    if (tcp_client.read(str_recv_buffer, 20) == false) {
+    if (tcp_client.read(str_recv_buffer, 10) == false) {
         logfile.write("tcp_client.read() failed.\n");
         return false;
     }
@@ -262,7 +277,10 @@ bool loginInfo(const char* argv) {
 }
 
 // 文件上传的主函数，执行一次文件上传的任务
-bool tcpPutFiles() {
+bool tcpPutFiles(bool& bcontinue) {
+    // 标记是否有上传文件的任务
+    bcontinue = false;
+
     cdir dir;
 
     // 打开 st_arg.client_path 目录
@@ -271,8 +289,12 @@ bool tcpPutFiles() {
         return false;
     }
 
+    // 未收到服务端确认报文的文件数量，发送了一个文件就加 1，接收了一个回应就减 1
+    int delayed = 0;
+
     // 遍历目录中的每个文件
     while (dir.readdir()) {
+        bcontinue = true;
         // 把文件名、修改时间、文件大小组成报文段，发送给服务端
         sformat(str_send_buffer, "<filename>%s</filename><mtime>%s</mtime><size>%d</size>",
             dir.m_ffilename.c_str(), dir.m_mtime.c_str(), dir.m_filesize);
@@ -291,16 +313,36 @@ bool tcpPutFiles() {
         }
         else {
             logfile << "ok.\n";
+            ++delayed;
         }
 
+        // 上传一个文件，更新进程心跳
+        pactive.updateAtime();
+
+        while (delayed > 0) {
+            // 接收服务端的确认报文
+            if (tcp_client.read(str_recv_buffer, -1) == false) {
+                break;
+            }
+            // logfile.write("str_recv_buffer = %s\n", str_recv_buffer.c_str());
+
+            // 处理服务端的确认报文（删除本地文件或把本地文件移动到备份目录）
+            ackMessage(str_recv_buffer);
+            --delayed;
+        }
+    }
+
+    // 继续接收服务端的确认报文（防止确认报文没有接收完）
+    while (delayed > 0) {
         // 接收服务端的确认报文
-        if (tcp_client.read(str_recv_buffer, 20) == false) {
+        if (tcp_client.read(str_recv_buffer, 10) == false) {
             break;
         }
         // logfile.write("str_recv_buffer = %s\n", str_recv_buffer.c_str());
 
         // 处理服务端的确认报文（删除本地文件或把本地文件移动到备份目录）
         ackMessage(str_recv_buffer);
+        --delayed;
     }
 
     return true;
