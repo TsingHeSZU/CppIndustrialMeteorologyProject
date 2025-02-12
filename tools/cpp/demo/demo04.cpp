@@ -1,4 +1,4 @@
-#include"/CppIndustrialMeteorologyProject/public/_public.h"
+#include"_public.h"
 using namespace idc;
 
 ctcpserver tcp_server;      // TCP 服务器端

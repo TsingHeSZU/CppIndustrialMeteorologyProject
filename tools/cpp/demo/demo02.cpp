@@ -1,4 +1,4 @@
-#include "/CppIndustrialMeteorologyProject/public/_public.h"
+#include "_public.h"
 using namespace idc;
 
 Cpactive pactive;      // 进程心跳，用全局对象（保证析构函数会被调用）

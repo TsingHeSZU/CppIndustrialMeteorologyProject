@@ -1,4 +1,4 @@
-#include "/CppIndustrialMeteorologyProject/public/_public.h"
+#include "_public.h"
 using namespace idc;
 /*
     守护程序：检查共享内存中进程的心跳，如果超时，则终止进程

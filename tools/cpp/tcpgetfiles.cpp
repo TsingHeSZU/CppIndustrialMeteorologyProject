@@ -1,7 +1,7 @@
 /*
     使用 tcp 协议，实现下载文件的客户端
 */
-#include "/CppIndustrialMeteorologyProject/public/_public.h"
+#include "_public.h"
 using namespace idc;
 
 // 程序运行参数的结构体（xml部分）

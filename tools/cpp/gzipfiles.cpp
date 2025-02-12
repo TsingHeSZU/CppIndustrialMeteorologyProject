@@ -1,4 +1,4 @@
-#include "/CppIndustrialMeteorologyProject/public/_public.h"
+#include "_public.h"
 using namespace idc;
 
 // 进程心跳机制

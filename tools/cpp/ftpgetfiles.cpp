@@ -1,5 +1,5 @@
-#include "/CppIndustrialMeteorologyProject/public/_public.h"
-#include "/CppIndustrialMeteorologyProject/public/_ftp.h"
+#include "_public.h"
+#include "_ftp.h"
 using namespace idc;
 
 // 程序运行参数的结构体

@@ -1,5 +1,5 @@
 // 模拟网上银行 app 服务端，增加心跳报文
-#include"/CppIndustrialMeteorologyProject/public/_public.h"
+#include"_public.h"
 using namespace idc;
 
 ctcpserver tcp_server;      // TCP 服务器端

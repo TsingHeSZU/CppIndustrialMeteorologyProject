@@ -1,4 +1,4 @@
-#include "/CppIndustrialMeteorologyProject/public/_public.h"
+#include "_public.h"
 using namespace idc;
 
 ctcpclient tcp_client;   // TCP 通信的客户端
