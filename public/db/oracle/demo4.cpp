@@ -1,4 +1,4 @@
-#include "_ooci.h"   // 开发框架操作Oracle的头文件
+#include "_ooci.h"   // 开发框架操作 Oracle 的头文件
 using namespace idc;
 
 /*
