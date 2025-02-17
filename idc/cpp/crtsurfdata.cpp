@@ -63,7 +63,10 @@ int main(int argc, char* argv[]) {
     {
         // 如果参数非法，给出帮助文档
         cout << "Using format: ./crtsurfdata inifile outpath logfile datafmt\n";
-        cout << "Examples: /CppIndustrialMeteorologyProject/tools/bin/procctl 60 /CppIndustrialMeteorologyProject/idc/bin/crtsurfdata /CppIndustrialMeteorologyProject/idc/ini/stcode.ini /tmp/idc/surfdata /log/idc/crtsurfdata.log csv,xml,json\n";
+        cout << "Examples: /CppIndustrialMeteorologyProject/tools/bin/procctl 60 "\
+            "/CppIndustrialMeteorologyProject/idc/bin/crtsurfdata "\
+            "/CppIndustrialMeteorologyProject/idc/ini/stcode.ini "\
+            "/tmp/idc/surfdata /log/idc/crtsurfdata.log csv,xml,json\n";
 
         cout << "本程序用于生成气象站点观测的分钟数据, 程序每分钟运行一次, 由调度模块启动。\n";
         cout << "inifile: 气象站点参数文件名。\n";
