@@ -33,11 +33,11 @@ int main(int argc, char* argv[]) {
             "\"idc/idcpwd\" \"Simplified Chinese_China.AL32UTF8\" /log/idc/obtcode_to_db.log\n\n");
 
         printf("本程序用于把全国气象站点参数数据保存到数据库的 T_ZHOBTCODE表中, 如果站点不存在则插入, 站点已存在则更新;\n");
-        printf("inifile 全国气象站点参数文件名(全路径);\n");
-        printf("connstr 数据库连接参数: username/password@tnsname;\n");
-        printf("charset 数据库的字符集;\n");
-        printf("logfile 本程序运行的日志文件名;\n");
-        printf("程序每120秒运行一次, 由procctl调度。\n\n");
+        printf("inifile: 全国气象站点参数文件名(全路径);\n");
+        printf("connstr: 数据库连接参数: username/password@tnsname;\n");
+        printf("charset: 数据库的字符集;\n");
+        printf("logfile: 本程序运行的日志文件名;\n");
+        printf("程序每 120 秒运行一次, 由procctl调度。\n\n");
         return -1;
     }
 

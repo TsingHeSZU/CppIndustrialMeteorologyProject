@@ -220,8 +220,8 @@ void help() {
     printf("xmlbuffer 为文件下载的参数, 如下:\n");
     printf("<host>127.0.0.1:21</host> 远程服务端的 IP 和 port;\n");
     printf("<mode>1</mode> 传输模式, 1-被动模式, 2-主动模式, 缺省采用被动模式;\n");
-    printf("<username>root</username> 远程服务端 ftp 的用户名;\n");
-    printf("<password>Hq17373546038</password> 远程服务端 ftp 的密码;\n");
+    printf("<username>utopianyouth</username> 远程服务端 ftp 的用户名;\n");
+    printf("<password>123</password> 远程服务端 ftp 的密码;\n");
     printf("<remotepath>/tmp/idc/surfdata</remotepath> 远程服务端存放文件的目录;\n");
     printf("<localpath>/idcdata/surfdata</localpath> 本地文件存放的目录;\n");
     printf("<matchname>SURF_ZH*.XML,SURF_ZH*.CSV</matchname> 待下载文件匹配的规则, "\

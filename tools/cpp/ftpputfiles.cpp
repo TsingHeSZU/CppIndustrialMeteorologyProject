@@ -184,8 +184,8 @@ void help() {
         "/CppIndustrialMeteorologyProject/tools/bin/ftpputfiles /log/idc/ftpputfiles_surfdata.log " \
         "\"<host>127.0.0.1:21</host>"\
         "<mode>1</mode>"\
-        "<username>root</username>"\
-        "<password>Hq17373546038</password>"\
+        "<username>utopianyouth</username>"\
+        "<password>123</password>"\
         "<localpath>/tmp/idc/surfdata</localpath>"\
         "<remotepath>/tmp/ftpputtest</remotepath>"\
         "<matchname>SURF_ZH*.JSON</matchname>"\

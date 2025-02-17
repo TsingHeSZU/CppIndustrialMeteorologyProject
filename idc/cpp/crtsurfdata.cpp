@@ -8,7 +8,7 @@ using namespace idc;
 */
 typedef struct StationCode {
     char prov_name[31];     // 省
-    char station_id[11];    // 站点编号
+    char obtid[11];    // 站点编号
     char station_name[31];  // 站名
     double latitude;        // 维度
     double longitude;       // 经度
@@ -19,13 +19,13 @@ typedef struct StationCode {
     气象站观测数据结构体
 */
 typedef struct StationSurfData {
-    char station_id[11];    // 站点编号
-    char d_datatime[15];    // 数据时间：格式yyyymmddhh24miss，精确到分钟，秒固定填00
+    char obtid[11];    // 站点编号
+    char ddatetime[15];    // 数据时间：格式yyyymmddhh24miss，精确到分钟，秒固定填00
     int t;      // 气温，单位，0.1 摄氏度，写入文件保存时，需要除10
     int p;      // 气压，0.1 百帕
-    int u;      // 相对湿度，0 - 100 之间的值
+    int rh;      // 相对湿度，0 - 100 之间的值
     int wd;     // 风向，角度，0 - 360 之间的值
-    int wf;     // 风速，单位 0.1 m/s
+    int ws;     // 风速，单位 0.1 m/s
     int r;      // 降雨量，0.1 mm
     int vis;    // 能见度，0.1 米
 }StationSurfData;
@@ -143,7 +143,7 @@ bool loadStationCode(const string& inifile) {
 
         cmdstr.splittocmd(str_buffer, ",");
         cmdstr.getvalue(0, st_code.prov_name, 30);  // 省
-        cmdstr.getvalue(1, st_code.station_id, 10);   // 站点编号
+        cmdstr.getvalue(1, st_code.obtid, 10);   // 站点编号
         cmdstr.getvalue(2, st_code.station_name, 30);   // 站点名称
         cmdstr.getvalue(3, st_code.latitude);     // 维度
         cmdstr.getvalue(4, st_code.longitude);      // 经度
@@ -156,8 +156,8 @@ bool loadStationCode(const string& inifile) {
 
     // 把容器中全部的数据写入日志，测试代码
     // for (auto& st : stcode_list) {
-    //     logfile.write("prov_name = %s, station_id = %s, station_name = %s, latitude = %.2f, longitude = %.2f, height = %.2f\n",
-    //         st.prov_name, st.station_id, st.station_name, st.latitude, st.longitude, st.height);
+    //     logfile.write("prov_name = %s, obtid = %s, station_name = %s, latitude = %.2f, longitude = %.2f, height = %.2f\n",
+    //         st.prov_name, st.obtid, st.station_name, st.latitude, st.longitude, st.height);
     // }
 
     return true;
@@ -174,13 +174,13 @@ void crtSurfData() {
         memset(&st_surfdata, 0, sizeof(st_surfdata));
 
         // 填充观测数据的结构体成员
-        strcpy(st_surfdata.station_id, st_code.station_id);     // 站点编号
-        strcpy(st_surfdata.d_datatime, str_ddatatime);       // 数据时间
+        strcpy(st_surfdata.obtid, st_code.obtid);     // 站点编号
+        strcpy(st_surfdata.ddatetime, str_ddatatime);       // 数据时间
         st_surfdata.t = rand() % 350;       // 气温
         st_surfdata.p = rand() % 265 + 10000;   // 气压： 0.1 百帕
-        st_surfdata.u = rand() % 101;       // 相对湿度，0 - 100 之间的值
+        st_surfdata.rh = rand() % 101;       // 相对湿度，0 - 100 之间的值
         st_surfdata.wd = rand() % 360;      // 风向：0 - 360 之间的值
-        st_surfdata.wf = rand() % 150;      // 风速：单位 0.1 m/s
+        st_surfdata.ws = rand() % 150;      // 风速：单位 0.1 m/s
         st_surfdata.r = rand() % 16;        // 降雨量：0.1 mm
         st_surfdata.vis = rand() % 5001 + 100000;   // 能见度：0.1 m
         data_list.push_back(st_surfdata);
@@ -189,7 +189,7 @@ void crtSurfData() {
     // 生成的观测数据写入日志中，测试代码
     // for (auto& st_data : data_list) {
     //     logfile.write("%s, %s, %.1f, %.1f, %d, %d, %.1f, %.1f, %.1f\n",
-    //         st_data.station_id, st_data.d_datatime, st_data.t / 10.0, st_data.p / 10.0, st_data.u,
+    //         st_data.obtid, st_data.ddatetime, st_data.t / 10.0, st_data.p / 10.0, st_data.u,
     //         st_data.wd, st_data.wf / 10.0, st_data.r / 10.0, st_data.vis / 10.0);
     // }
 }
@@ -224,18 +224,18 @@ bool writeCrtSurfData(const string& outpath, const string& datafmt) {
     for (auto& st_data : data_list) {
         if (datafmt == "csv") {
             ofile.writeline("%s,%s,%.1f,%.1f,%d,%d,%.1f,%.1f,%.1f\n",
-                st_data.station_id, st_data.d_datatime, st_data.t / 10.0, st_data.p / 10.0,
-                st_data.u, st_data.wd, st_data.wf / 10.0, st_data.r / 10.0, st_data.vis / 10.0);
+                st_data.obtid, st_data.ddatetime, st_data.t / 10.0, st_data.p / 10.0,
+                st_data.rh, st_data.wd, st_data.ws / 10.0, st_data.r / 10.0, st_data.vis / 10.0);
         }
         if (datafmt == "xml") {
-            ofile.writeline("<station_id>%s</station_id><d_datatime>%s</d_datatime><t>%.1f</t><p>%.1f</p><u>%d</u><wd>%d</wd><wf>%.1f</wf><r>%.1f</r><vis>%.1f</vis><endl/>\n",
-                st_data.station_id, st_data.d_datatime, st_data.t / 10.0, st_data.p / 10.0,
-                st_data.u, st_data.wd, st_data.wf / 10.0, st_data.r / 10.0, st_data.vis / 10.0);
+            ofile.writeline("<obtid>%s</obtid><ddatetime>%s</ddatetime><t>%.1f</t><p>%.1f</p><rh>%d</rh><wd>%d</wd><ws>%.1f</ws><r>%.1f</r><vis>%.1f</vis><endl/>\n",
+                st_data.obtid, st_data.ddatetime, st_data.t / 10.0, st_data.p / 10.0,
+                st_data.rh, st_data.wd, st_data.ws / 10.0, st_data.r / 10.0, st_data.vis / 10.0);
         }
         if (datafmt == "json") {
-            ofile.writeline("{\"station_id\":\"%s\",\"d_datatime\":\"%s\",\"t\":\"%.1f\",\"p\":\"%.1f\",\"u\":\"%d\",\"wd\":\"%d\",\"wf\":\"%.1f\",\"r\":\"%.1f\",\"vis\":\"%.1f\"}",
-                st_data.station_id, st_data.d_datatime, st_data.t / 10.0, st_data.p / 10.0,
-                st_data.u, st_data.wd, st_data.wf / 10.0, st_data.r / 10.0, st_data.vis / 10.0);
+            ofile.writeline("{\"obtid\":\"%s\",\"ddatetime\":\"%s\",\"t\":\"%.1f\",\"p\":\"%.1f\",\"rh\":\"%d\",\"wd\":\"%d\",\"ws\":\"%.1f\",\"r\":\"%.1f\",\"vis\":\"%.1f\"}",
+                st_data.obtid, st_data.ddatetime, st_data.t / 10.0, st_data.p / 10.0,
+                st_data.rh, st_data.wd, st_data.ws / 10.0, st_data.r / 10.0, st_data.vis / 10.0);
 
             // 注意，json 文件的最后一条记录不需要逗号，用以下代码特殊处理
             static int ii = 0;      // 已写入数据行数的计数器
