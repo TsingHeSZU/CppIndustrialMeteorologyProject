@@ -13,14 +13,14 @@
 /CppIndustrialMeteorologyProject/tools/bin/procctl 300 /CppIndustrialMeteorologyProject/tools/bin/gzipfiles /log/idc "*.log.20*" 0.02
 
 # 从 /tmp/idc/surfdata 目录下载原始的气象观测数据文件，存放在/idcdata/surfdata目录。
-/CppIndustrialMeteorologyProject/tools/bin/procctl 30 /CppIndustrialMeteorologyProject/tools/bin/ftpgetfiles /log/idc/ftpgetfiles_surfdata.log "<host>127.0.0.1:21</host><mode>1</mode><username>root</username><password>Hq17373546038</password><localpath>/idcdata/surfdata</localpath><remotepath>/tmp/idc/surfdata</remotepath><matchname>SURF_ZH*.XML,SURF_ZH*.CSV</matchname><listfilename>/idcdata/ftplist/ftpgetfiles_surfdata.list</listfilename><ptype>1</ptype><okfilename>/idcdata/ftplist/ftpgetfiles_surfdata.xml</okfilename><checkmtime>true</checkmtime><timeout>80</timeout><pname>ftpgetfiles_surfdata</pname>"
+/CppIndustrialMeteorologyProject/tools/bin/procctl 30 /CppIndustrialMeteorologyProject/tools/bin/ftpgetfiles /log/idc/ftpgetfiles_surfdata.log "<host>127.0.0.1:21</host><mode>1</mode><username>utopianyouth</username><password>123</password><localpath>/idcdata/surfdata</localpath><remotepath>/tmp/idc/surfdata</remotepath><matchname>SURF_ZH*.XML,SURF_ZH*.CSV</matchname><listfilename>/idcdata/ftplist/ftpgetfiles_surfdata.list</listfilename><ptype>1</ptype><okfilename>/idcdata/ftplist/ftpgetfiles_surfdata.xml</okfilename><checkmtime>true</checkmtime><timeout>80</timeout><pname>ftpgetfiles_surfdata</pname>"
 
 # 清理/idcdata/surfdata目录中0.04天之前的文件。
 /CppIndustrialMeteorologyProject/tools/bin/procctl 300 /CppIndustrialMeteorologyProject/tools/bin/deletefiles /idcdata/surfdata "*" 0.04
 
 # 把 /tmp/idc/surfdata 目录的原始气象观测数据文件上传到 /tmp/ftpputtest 目录。
 # 注意，先创建好服务端的目录：mkdir /tmp/ftpputtest 
-/CppIndustrialMeteorologyProject/tools/bin/procctl 30 /CppIndustrialMeteorologyProject/tools/bin/ftpputfiles /log/idc/ftpputfiles_surfdata.log "<host>127.0.0.1:21</host><mode>1</mode><username>root</username><password>Hq17373546038</password><localpath>/tmp/idc/surfdata</localpath><remotepath>/tmp/ftpputtest</remotepath><matchname>SURF_ZH*.JSON</matchname><ptype>1</ptype><okfilename>/idcdata/ftplist/ftpputfiles_surfdata.xml</okfilename><timeout>80</timeout><pname>ftpputfiles_surfdata</pname>"
+/CppIndustrialMeteorologyProject/tools/bin/procctl 30 /CppIndustrialMeteorologyProject/tools/bin/ftpputfiles /log/idc/ftpputfiles_surfdata.log "<host>127.0.0.1:21</host><mode>1</mode><username>utopianyouth</username><password>123</password><localpath>/tmp/idc/surfdata</localpath><remotepath>/tmp/ftpputtest</remotepath><matchname>SURF_ZH*.JSON</matchname><ptype>1</ptype><okfilename>/idcdata/ftplist/ftpputfiles_surfdata.xml</okfilename><timeout>80</timeout><pname>ftpputfiles_surfdata</pname>"
 
 # 清理 /tmp/ftpputtest 目录中 0.04 天之前的文件。
 /CppIndustrialMeteorologyProject/tools/bin/procctl 300 /CppIndustrialMeteorologyProject/tools/bin/deletefiles /tmp/ftpputtest "*" 0.04
@@ -36,3 +36,9 @@
 
 # 清理 /tmp/tcpgettest 目录中的历史数据文件。
 /CppIndustrialMeteorologyProject/tools/bin/procctl 300 /CppIndustrialMeteorologyProject/tools/bin/deletefiles /tmp/tcpgettest "*" 0.02
+
+# 把 /idcdata/surfdata 目录中的气象观测数据文件入库到 T_ZHOBTMIND 表中
+/CppIndustrialMeteorologyProject/tools/bin/procctl 10 /CppIndustrialMeteorologyProject/idc/bin/obtmind_to_db /idcdata/surfdata "idc/idcpwd" "Simplified Chinese_China.AL32UTF8" /log/idc/obtmind_to_db.log
+
+# 执行 /CppIndustrialMeteorologyProject/idc/sql/delete_table.sql 脚本，删除 T_ZHOBTMIND 表两小时之前的数据
+/CppIndustrialMeteorologyProject/tools/bin/procctl 120 /oracle/home/bin/sqlplus idc/idcpwd @/CppIndustrialMeteorologyProject/idc/sql/deletetable.sql

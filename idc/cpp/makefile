@@ -20,7 +20,7 @@ ORACPP = /CppIndustrialMeteorologyProject/public/db/oracle/_ooci.cpp
 # 编译参数。
 CFLAGS = -g
 
-all:crtsurfdata obtcode_to_db
+all:crtsurfdata obtcode_to_db obtmind_to_db
 
 crtsurfdata:crtsurfdata.cpp
 	g++ $(CFLAGS) -o crtsurfdata crtsurfdata.cpp $(PUBINCL) $(PUBCPP)
@@ -30,5 +30,8 @@ obtcode_to_db:obtcode_to_db.cpp
 	g++ $(CFLAGS) -o obtcode_to_db obtcode_to_db.cpp $(PUBINCL) $(PUBCPP) $(ORAINCL) $(ORALIB) $(ORALIBS) $(ORACPP)
 	cp -f obtcode_to_db ../bin/.
 
+obtmind_to_db:obtmind_to_db.cpp idcapp.cpp
+	g++ $(CFLAGS) -o obtmind_to_db obtmind_to_db.cpp idcapp.cpp $(PUBINCL) $(PUBCPP) $(ORAINCL) $(ORALIB) $(ORALIBS) $(ORACPP)
+	cp -f obtmind_to_db ../bin/.
 clean:
-	rm -f crtsurfdata obtcode_to_db
+	rm -f crtsurfdata obtcode_to_db obtmind_to_db

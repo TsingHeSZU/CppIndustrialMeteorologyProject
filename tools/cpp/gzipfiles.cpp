@@ -16,8 +16,10 @@ int main(int argc, char* argv[]) {
 
         printf("Examples: \n/CppIndustrialMeteorologyProject/tools/bin/gzipfiles /tmp/idc/surfdata \"*.xml,*.json\" 0.01\n");
         cout << R"(/CppIndustrialMeteorologyProject/tools/bin/gzipfiles /log/idc "*.log.20*" 0.02)" << endl;
-        printf("/CppIndustrialMeteorologyProject/tools/bin/procctl 300 /CppIndustrialMeteorologyProject/tools/bin/gzipfiles /log/idc \"*.log.20*\" 0.02\n");
-        printf("/CppIndustrialMeteorologyProject/tools/bin/procctl 300 /CppIndustrialMeteorologyProject/tools/bin/gzipfiles /tmp/idc/surfdata \"*.xml,*.json\" 0.01\n\n");
+        printf("/CppIndustrialMeteorologyProject/tools/bin/procctl 300 /CppIndustrialMeteorologyProject/tools/bin/gzipfiles "\
+            "/log/idc \"*.log.20*\" 0.02\n");
+        printf("/CppIndustrialMeteorologyProject/tools/bin/procctl 300 /CppIndustrialMeteorologyProject/tools/bin/gzipfiles "\
+            "/tmp/idc/surfdata \"*.xml,*.json\" 0.01\n\n");
 
         printf("这是一个工具程序, 用于压缩历史的数据文件或日志文件。\n");
         printf("本程序把 pathname 目录及子目录中 timeout 天之前的匹配 matchstr 文件全部压缩, timeout可以是小数。\n");
