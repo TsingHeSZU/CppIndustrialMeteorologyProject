@@ -4,11 +4,23 @@ PUBINCL = -I/CppIndustrialMeteorologyProject/public/
 # 开发框架 cpp 文件名，直接和程序的源代码文件一起编译，没有采用链接库，是为了方便调试
 PUBCPP = /CppIndustrialMeteorologyProject/public/_public.cpp
 
+# oracle头文件路径
+ORAINCL = -I$(ORACLE_HOME)/rdbms/public -I/CppIndustrialMeteorologyProject/public/db/oracle
+
+# oracle库文件路径
+ORALIB =  -L$(ORACLE_HOME)/lib -L.
+
+# oracle的oci库
+ORALIBS = -lclntsh
+
+# 开发框架 oracle 的 cpp 文件名，这里直接包含进来，没有采用链接库，是为了方便调试
+ORACPP = /CppIndustrialMeteorologyProject/public/db/oracle/_ooci.cpp
+
 # 编译选项
 CFLAGS = -g
 # CLFAGS = -O2
 
-all: procctl checkproc deletefiles gzipfiles ftpgetfiles ftpputfiles tcpfileserver tcpputfiles tcpputfiles_io_multi tcpgetfiles
+all: procctl checkproc deletefiles gzipfiles ftpgetfiles ftpputfiles tcpfileserver tcpputfiles tcpputfiles_io_multi tcpgetfiles dminingoracle
 procctl: procctl.cpp
 	g++ -g -o procctl procctl.cpp
 	cp -f procctl ../bin/.
@@ -49,5 +61,10 @@ tcpgetfiles: tcpgetfiles.cpp
 	g++ $(CFLAGS) tcpgetfiles.cpp -o tcpgetfiles $(PUBINCL) $(PUBCPP)
 	cp -f tcpgetfiles ../bin/.	
 
+dminingoracle: dminingoracle.cpp
+	g++ $(CFLAGS) -o dminingoracle dminingoracle.cpp $(PUBINCL) $(PUBCPP) $(ORAINCL) $(ORALIB) $(ORALIBS) $(ORACPP)
+	cp -f dminingoracle ../bin/.
+
 clean:
-	rm -rf procctl checkproc deletefiles gzipfiles ftpgetfiles ftpputfiles tcpfileserver tcpputfiles tcpputfiles_io_multi tcpgetfiles
+	rm -rf procctl checkproc deletefiles gzipfiles ftpgetfiles ftpputfiles 
+	rm -rf tcpfileserver tcpputfiles tcpputfiles_io_multi tcpgetfiles dminingoracle
