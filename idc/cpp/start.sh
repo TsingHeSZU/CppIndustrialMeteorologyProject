@@ -42,3 +42,12 @@
 
 # 执行 /CppIndustrialMeteorologyProject/idc/sql/delete_table.sql 脚本，删除 T_ZHOBTMIND 表两小时之前的数据
 /CppIndustrialMeteorologyProject/tools/bin/procctl 120 /oracle/home/bin/sqlplus idc/idcpwd @/CppIndustrialMeteorologyProject/idc/sql/deletetable.sql
+
+# 每隔 1 小时把 T_ZHOBTCODE 表中的全部数据抽取出来
+/CppIndustrialMeteorologyProject/tools/bin/procctl 3600 /CppIndustrialMeteorologyProject/tools/bin/dminingoracle /log/idc/dminingoracle_ZHOBTCODE.log "<connstr>idc/idcpwd</connstr><charset>Simplified Chinese_China.AL32UTF8</charset><selectsql>select obtid,cityname,provname,latitude,longitude,height from T_ZHOBTCODE where obtid like '5%%'</selectsql><fieldstr>obtid,cityname,provname,latitude,longitude,height</fieldstr><fieldlen>5,30,30,10,10,10</fieldlen><bfilename>ZHOBTCODE</bfilename><efilename>togxpt</efilename><outpath>/idcdata/dmindata</outpath><timeout>30</timeout><pname>dminingoracle_ZHOBTCODE</pname>"
+
+# 每 30s 从 T_ZHOBTMIND 表中增量抽取数据
+/CppIndustrialMeteorologyProject/tools/bin/procctl 30 /CppIndustrialMeteorologyProject/tools/bin/dminingoracle /log/idc/dminingoracle_ZHOBTMIND.log "<connstr>idc/idcpwd</connstr><charset>Simplified Chinese_China.AL32UTF8</charset><selectsql>select obtid,to_char(ddatetime,'yyyymmddhh24miss'),t,p,rh,wd,ws,r,vis,keyid from T_ZHOBTMIND where keyid>:1 and obtid like '5%%'</selectsql><fieldstr>obtid,ddatetime,t,p,rh,wd,ws,r,vis,keyid</fieldstr><fieldlen>5,19,8,8,8,8,8,8,8,15</fieldlen><bfilename>ZHOBTMIND</bfilename><efilename>togxpt</efilename><outpath>/idcdata/dmindata</outpath><starttime></starttime><incfield>keyid</incfield><incfilename>/idcdata/dmining/dminingoracle_ZHOBTMIND_togxpt.keyid</incfilename><timeout>30</timeout><pname>dminingoracle_ZHOBTMIND_togxpt</pname><maxcount>1000</maxcount><connstr1>scott/123</connstr1>"
+
+# 清理 /idcdata/dmindata 目录中的文件，防止磁盘空间不足
+/CppIndustrialMeteorologyProject/tools/bin/procctl 300 /CppIndustrialMeteorologyProject/tools/bin/deletefiles /idcdata/dmindata "*" 0.02
