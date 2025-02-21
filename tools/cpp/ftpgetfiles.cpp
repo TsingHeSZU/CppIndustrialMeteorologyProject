@@ -196,8 +196,8 @@ void help() {
         "/CppIndustrialMeteorologyProject/tools/bin/ftpgetfiles /log/idc/ftpgetfiles_surfdata.log " \
         "\"<host>127.0.0.1:21</host>"\
         "<mode>1</mode>"\
-        "<username>root</username>"\
-        "<password>Hq17373546038</password>"\
+        "<username>utopianyouth</username>"\
+        "<password>123</password>"\
         "<localpath>/idcdata/surfdata</localpath>"\
         "<remotepath>/tmp/idc/surfdata</remotepath>"\
         "<matchname>SURF_ZH*.XML,SURF_ZH*.CSV</matchname>"\

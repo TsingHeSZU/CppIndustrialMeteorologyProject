@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+
+<!--该参数文件存放了共享平台的入库参数，updateflag = 2 表示不更新表中数据，updateflag = 1 表示更新表中数据-->
+<xmltodb>
+    <filename>ZHOBTCODE_*.XML</filename><tname>T_ZHOBTCODE1</tname><updateflag>1</updateflag><execsql>delete from T_ZHOBTCODE1</execsql><endl/>
+    <filename>ZHOBTMIND_*.XML</filename><tname>T_ZHOBTMIND1</tname><updateflag>1</updateflag><endl/>
+</xmltodb>

@@ -19,8 +19,10 @@ int main(int argc, char* argv[]) {
 
         printf("Example: /CppIndustrialMeteorologyProject/tools/bin/procctl 10 "\
             "/CppIndustrialMeteorologyProject/idc/bin/obtmind_to_db "\
-            "/tmp/test "\
-            "\"idc/idcpwd\" \"Simplified Chinese_China.AL32UTF8\" /log/idc/obtmind_to_db.log\n\n");
+            "/idcdata/surfdata "\
+            "\"idc/idcpwd\" "\
+            "\"Simplified Chinese_China.AL32UTF8\" "\
+            "/log/idc/obtmind_to_db.log\n\n");
 
         printf("本程序用于把全国气象观测数据文件入库到 T_ZHOBTMIND 表中, 支持 xml 和 csv 两种文件格式, 数据只插入, 不更新;\n");
         printf("pathname: 全国气象观测数据文件存放的目录;\n");

@@ -30,7 +30,9 @@ int main(int argc, char* argv[]) {
         printf("Example: /CppIndustrialMeteorologyProject/tools/bin/procctl 120 "\
             "/CppIndustrialMeteorologyProject/idc/bin/obtcode_to_db "\
             "/CppIndustrialMeteorologyProject/idc/ini/stcode.ini "\
-            "\"idc/idcpwd\" \"Simplified Chinese_China.AL32UTF8\" /log/idc/obtcode_to_db.log\n\n");
+            "\"idc/idcpwd\" "\
+            "\"Simplified Chinese_China.AL32UTF8\" "\
+            "/log/idc/obtcode_to_db.log\n\n");
 
         printf("本程序用于把全国气象站点参数数据保存到数据库的 T_ZHOBTCODE表中, 如果站点不存在则插入, 站点已存在则更新;\n");
         printf("inifile: 全国气象站点参数文件名(全路径);\n");

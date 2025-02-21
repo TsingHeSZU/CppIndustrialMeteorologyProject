@@ -20,7 +20,7 @@ ORACPP = /CppIndustrialMeteorologyProject/public/db/oracle/_ooci.cpp
 CFLAGS = -g
 # CLFAGS = -O2
 
-all: procctl checkproc deletefiles gzipfiles ftpgetfiles ftpputfiles tcpfileserver tcpputfiles tcpputfiles_io_multi tcpgetfiles dminingoracle
+all: procctl checkproc deletefiles gzipfiles ftpgetfiles ftpputfiles tcpfileserver tcpputfiles tcpputfiles_io_multi tcpgetfiles dminingoracle xmltodb
 procctl: procctl.cpp
 	g++ -g -o procctl procctl.cpp
 	cp -f procctl ../bin/.
@@ -65,6 +65,11 @@ dminingoracle: dminingoracle.cpp
 	g++ $(CFLAGS) -o dminingoracle dminingoracle.cpp $(PUBINCL) $(PUBCPP) $(ORAINCL) $(ORALIB) $(ORALIBS) $(ORACPP)
 	cp -f dminingoracle ../bin/.
 
+xmltodb:xmltodb.cpp
+	g++ $(CFLAGS) -o xmltodb xmltodb.cpp $(PUBINCL) $(PUBCPP) $(ORAINCL) $(ORALIB) $(ORALIBS) $(ORACPP) _tools.cpp
+	cp -f xmltodb ../bin/.	
+
 clean:
 	rm -rf procctl checkproc deletefiles gzipfiles ftpgetfiles ftpputfiles 
 	rm -rf tcpfileserver tcpputfiles tcpputfiles_io_multi tcpgetfiles dminingoracle
+	rm -rf xmltodb

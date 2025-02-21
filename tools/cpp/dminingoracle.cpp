@@ -1,3 +1,14 @@
+/*
+    程序功能：从 oracle 数据库表中，进行数据抽取，将抽取出来的数据存储到 xml 文件中
+    - 全量抽取
+    - 增量抽取
+
+    增量抽取数据库内容的思路如下：
+    1. 从文件或者数据库中获取上次已抽取数据的增量字段的最大值（如果是第一次执行抽取任务，增量字段最大值为 0）
+    2. 在数据抽取的 sql 语句执行前，绑定输入变量（已抽取数据增量字段的最大值）
+    3. 获取结果集的时候，要把递增字段的最大值保存在临时变量中
+    4. 抽取完数据之后，把临时变量中增量字段的最大值保存在文件或数据库中
+*/
 #include "_public.h"
 #include "_ooci.h"
 using namespace idc;
@@ -21,36 +32,29 @@ typedef struct StArg {
     char pname[51];             // 进程名，建议用 "dminingoracle_后缀" 的方式   
 }StArg;
 
-Cpactive pactive;       // 进程心跳
-clogfile logfile;       // 日志文件
-StArg starg;            // 程序运行参数
-ccmdstr all_fieldstr;      // 结果集字段名数组
+Cpactive pactive;           // 进程心跳
+clogfile logfile;           // 日志文件
+StArg starg;                // 程序运行参数
+ccmdstr all_fieldstr;       // 结果集字段名数组
 ccmdstr all_fieldlen;       // 结果集字段的长度数组
-connection conn;        // 数据源数据库
+connection conn;            // 数据源数据库的连接对象
+long imaxincvalue;          // 增量抽取递增字段的最大值
+int incfieldpos = -1;       // 递增字段在结果集数组中的位置
 
-
-void Help();                    // 程序帮助文档
-
-bool xmlToArg(const char* strxmlbuffer);    // 把 xml 解析到参数 starg 结构体变量中
-bool inStartTime();             // 判断当前时间是否在程序运行的时间区间内
-bool dminingOracle();           // 数据抽取主函数
-
-// 增量抽取数据库的内容
-
-// 1. 从文件或者数据库中获取上次已抽取数据的增量字段的最大值（如果是第一次执行抽取任务，增量字段最大值为 0）
-long imaxincvalue;      // 增量抽取递增字段的最大值
-bool readIncreaseField();            // 从数据库表中或者 starg.incfilename 文件中加载上次已抽取数据的最大值
-
-// 2. 在数据抽取的 sql 语句执行前，绑定输入变量（已抽取数据增量字段的最大值）
-
-// 3. 获取结果集的时候，要把递增字段的最大值保存在临时变量中
-int incfieldpos = -1;   // 递增字段在结果集数组中的位置
-
-// 4. 抽取完数据之后，把临时变量中的增量字段的最大值保存在文件或数据库中
-bool writeInceaseField();   // 把增量抽取数据的递增字段最大值写入数据库表或 starg.incfilename 文件中
-
-void EXIT(int sig);             // 程序退出和信号2, 15 的处理函数
-
+// 程序帮助文档
+void Help();
+// 把 xml 解析到参数 starg 结构体变量中
+bool xmlToArg(const char* strxmlbuffer);
+// 判断当前时间是否在程序运行的时间区间内
+bool inStartTime();
+// 数据抽取主函数
+bool dminingOracle();
+// 从数据库表中或者 starg.incfilename 文件中加载上次已抽取数据的最大值
+bool readIncreaseField();
+// 把增量抽取数据的递增字段最大值写入数据库表或 starg.incfilename 文件中
+bool writeInceaseField();
+// 程序退出和信号2, 15 的处理函数
+void EXIT(int sig);
 
 
 int main(int argc, char* argv[]) {
@@ -72,7 +76,7 @@ int main(int argc, char* argv[]) {
 
     // 解析 xml 格式的字符串，得到程序运行的参数
     if (xmlToArg(argv[2]) == false) {
-        logfile.write("parse xml string (%s) failed.\n", argv[2]);
+        logfile.write("parse xml(%s) for program running failed.\n", argv[2]);
         EXIT(-1);
     }
 
@@ -509,7 +513,7 @@ bool writeInceaseField() {
     return true;
 }
 
-// 程序退出和信号2, 15 的处理函数
+// 程序退出和信号 2, 15 的处理函数
 void EXIT(int sig) {
     logfile.write("program exit, sig = %d.\n", sig);
     exit(0);
