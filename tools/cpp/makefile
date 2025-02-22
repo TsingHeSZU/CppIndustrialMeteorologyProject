@@ -20,7 +20,8 @@ ORACPP = /CppIndustrialMeteorologyProject/public/db/oracle/_ooci.cpp
 CFLAGS = -g
 # CLFAGS = -O2
 
-all: procctl checkproc deletefiles gzipfiles ftpgetfiles ftpputfiles tcpfileserver tcpputfiles tcpputfiles_io_multi tcpgetfiles dminingoracle xmltodb
+all: procctl checkproc deletefiles gzipfiles ftpgetfiles ftpputfiles tcpfileserver tcpputfiles\
+	 tcpputfiles_io_multi tcpgetfiles dminingoracle xmltodb deletetable migratetable
 procctl: procctl.cpp
 	g++ -g -o procctl procctl.cpp
 	cp -f procctl ../bin/.
@@ -65,11 +66,19 @@ dminingoracle: dminingoracle.cpp
 	g++ $(CFLAGS) -o dminingoracle dminingoracle.cpp $(PUBINCL) $(PUBCPP) $(ORAINCL) $(ORALIB) $(ORALIBS) $(ORACPP)
 	cp -f dminingoracle ../bin/.
 
-xmltodb:xmltodb.cpp
+xmltodb:xmltodb.cpp _tools.cpp
 	g++ $(CFLAGS) -o xmltodb xmltodb.cpp $(PUBINCL) $(PUBCPP) $(ORAINCL) $(ORALIB) $(ORALIBS) $(ORACPP) _tools.cpp
 	cp -f xmltodb ../bin/.	
+
+deletetable:deletetable.cpp
+	g++ $(CFLAGS) -o deletetable deletetable.cpp $(PUBINCL) $(PUBCPP) $(ORAINCL) $(ORALIB) $(ORALIBS) $(ORACPP)
+	cp -f deletetable ../bin/.	
+
+migratetable:migratetable.cpp _tools.cpp
+	g++ $(CFLAGS) -o migratetable migratetable.cpp $(PUBINCL) $(PUBCPP) $(ORAINCL) $(ORALIB) $(ORALIBS) $(ORACPP) _tools.cpp
+	cp -f migratetable ../bin/.
 
 clean:
 	rm -rf procctl checkproc deletefiles gzipfiles ftpgetfiles ftpputfiles 
 	rm -rf tcpfileserver tcpputfiles tcpputfiles_io_multi tcpgetfiles dminingoracle
-	rm -rf xmltodb
+	rm -rf xmltodb deletetable migratetable
