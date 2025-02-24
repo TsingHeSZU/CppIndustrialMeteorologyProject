@@ -21,7 +21,8 @@ CFLAGS = -g
 # CLFAGS = -O2
 
 all: procctl checkproc deletefiles gzipfiles ftpgetfiles ftpputfiles tcpfileserver tcpputfiles\
-	 tcpputfiles_io_multi tcpgetfiles dminingoracle xmltodb deletetable migratetable
+	 tcpputfiles_io_multi tcpgetfiles dminingoracle xmltodb deletetable migratetable syncrefresh\
+	 syncincrease
 procctl: procctl.cpp
 	g++ -g -o procctl procctl.cpp
 	cp -f procctl ../bin/.
@@ -78,7 +79,15 @@ migratetable:migratetable.cpp _tools.cpp
 	g++ $(CFLAGS) -o migratetable migratetable.cpp $(PUBINCL) $(PUBCPP) $(ORAINCL) $(ORALIB) $(ORALIBS) $(ORACPP) _tools.cpp
 	cp -f migratetable ../bin/.
 
+syncrefresh:syncrefresh.cpp _tools.cpp
+	g++ $(CFLAGS) -o syncrefresh syncrefresh.cpp $(PUBINCL) $(PUBCPP) $(ORAINCL) $(ORALIB) $(ORALIBS) $(ORACPP) _tools.cpp
+	cp -f syncrefresh ../bin/.
+
+syncincrease:syncincrease.cpp _tools.cpp
+	g++ $(CFLAGS) -o syncincrease syncincrease.cpp $(PUBINCL) $(PUBCPP) $(ORAINCL) $(ORALIB) $(ORALIBS) $(ORACPP) _tools.cpp
+	cp -f syncincrease ../bin/.
+
 clean:
 	rm -rf procctl checkproc deletefiles gzipfiles ftpgetfiles ftpputfiles 
 	rm -rf tcpfileserver tcpputfiles tcpputfiles_io_multi tcpgetfiles dminingoracle
-	rm -rf xmltodb deletetable migratetable
+	rm -rf xmltodb deletetable migratetable syncrefresh syncincrease

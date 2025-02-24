@@ -33,5 +33,6 @@ obtcode_to_db:obtcode_to_db.cpp
 obtmind_to_db:obtmind_to_db.cpp idcapp.cpp
 	g++ $(CFLAGS) -o obtmind_to_db obtmind_to_db.cpp idcapp.cpp $(PUBINCL) $(PUBCPP) $(ORAINCL) $(ORALIB) $(ORALIBS) $(ORACPP)
 	cp -f obtmind_to_db ../bin/.
+
 clean:
-	rm -f crtsurfdata obtcode_to_db obtmind_to_db
+	rm -f crtsurfdata obtcode_to_db obtmind_to_db 
