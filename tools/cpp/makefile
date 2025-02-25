@@ -22,7 +22,7 @@ CFLAGS = -g
 
 all: procctl checkproc deletefiles gzipfiles ftpgetfiles ftpputfiles tcpfileserver tcpputfiles\
 	 tcpputfiles_io_multi tcpgetfiles dminingoracle xmltodb deletetable migratetable syncrefresh\
-	 syncincrease
+	 syncincrease inetd rinetd rinetdin
 procctl: procctl.cpp
 	g++ -g -o procctl procctl.cpp
 	cp -f procctl ../bin/.
@@ -87,7 +87,20 @@ syncincrease:syncincrease.cpp _tools.cpp
 	g++ $(CFLAGS) -o syncincrease syncincrease.cpp $(PUBINCL) $(PUBCPP) $(ORAINCL) $(ORALIB) $(ORALIBS) $(ORACPP) _tools.cpp
 	cp -f syncincrease ../bin/.
 
+inetd:inetd.cpp
+	g++ $(CFLAGS) -o inetd inetd.cpp $(PUBINCL) $(PUBCPP) $(ORAINCL) $(ORALIB) $(ORALIBS) $(ORACPP)
+	cp -f inetd ../bin/.	
+
+rinetd:rinetd.cpp
+	g++ $(CFLAGS) -o rinetd rinetd.cpp $(PUBINCL) $(PUBCPP) $(ORAINCL) $(ORALIB) $(ORALIBS) $(ORACPP)
+	cp -f rinetd ../bin/.	
+
+rinetdin:rinetdin.cpp
+	g++ $(CFLAGS) -o rinetdin rinetdin.cpp $(PUBINCL) $(PUBCPP) $(ORAINCL) $(ORALIB) $(ORALIBS) $(ORACPP)
+	cp -f rinetdin ../bin/.	
+
 clean:
 	rm -rf procctl checkproc deletefiles gzipfiles ftpgetfiles ftpputfiles 
 	rm -rf tcpfileserver tcpputfiles tcpputfiles_io_multi tcpgetfiles dminingoracle
-	rm -rf xmltodb deletetable migratetable syncrefresh syncincrease
+	rm -rf xmltodb deletetable migratetable syncrefresh syncincrease inetd rinetd
+	rm -rf rinetdin
