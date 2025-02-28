@@ -1,4 +1,4 @@
-// 网络通讯的客户端程序。
+// 网络通讯的客户端程序
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -9,7 +9,7 @@
 #include <arpa/inet.h>
 #include <time.h>
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     if (argc != 3)
     {
@@ -19,55 +19,55 @@ int main(int argc, char *argv[])
     int sockfd;
     struct sockaddr_in servaddr;
     char buf[1024];
- 
-    if ((sockfd=socket(AF_INET,SOCK_STREAM,0))<0) { printf("socket() failed.\n"); return -1; }
-	
-    memset(&servaddr,0,sizeof(servaddr));
-    servaddr.sin_family=AF_INET;
-    servaddr.sin_port=htons(atoi(argv[2]));
-    servaddr.sin_addr.s_addr=inet_addr(argv[1]);
 
-    if (connect(sockfd, (struct sockaddr *)&servaddr,sizeof(servaddr)) != 0)
+    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) { printf("socket() failed.\n"); return -1; }
+
+    memset(&servaddr, 0, sizeof(servaddr));
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_port = htons(atoi(argv[2]));
+    servaddr.sin_addr.s_addr = inet_addr(argv[1]);
+
+    if (connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) != 0)
     {
-        printf("connect(%s:%s) failed.\n",argv[1],argv[2]); close(sockfd);  return -1;
+        printf("connect(%s:%s) failed.\n", argv[1], argv[2]); close(sockfd);  return -1;
     }
 
     printf("connect ok.\n");
 
-    memset(buf,0,sizeof(buf));
-    strcpy(buf,"aaaaaa");
+    memset(buf, 0, sizeof(buf));
+    strcpy(buf, "aaaaaa");
 
-    if (send(sockfd,buf,strlen(buf),0) <=0)
-    { 
+    if (send(sockfd, buf, strlen(buf), 0) <= 0)
+    {
         printf("write() failed.\n");  close(sockfd);  return -1;
     }
 
     sleep(10);
 
-    memset(buf,0,sizeof(buf));
-    strcpy(buf,"bbbbbb\r\n\r\n");
+    memset(buf, 0, sizeof(buf));
+    strcpy(buf, "bbbbbb\r\n\r\n");
 
-    if (send(sockfd,buf,strlen(buf),0) <=0)
-    { 
+    if (send(sockfd, buf, strlen(buf), 0) <= 0)
+    {
         printf("write() failed.\n");  close(sockfd);  return -1;
     }
 
     sleep(5);
 
-    memset(buf,0,sizeof(buf));
-    strcpy(buf,"cccccc\r\n\r\n");
+    memset(buf, 0, sizeof(buf));
+    strcpy(buf, "cccccc\r\n\r\n");
 
-    if (send(sockfd,buf,strlen(buf),0) <=0)
-    { 
+    if (send(sockfd, buf, strlen(buf), 0) <= 0)
+    {
         printf("write() failed.\n");  close(sockfd);  return -1;
     }
-		
-    memset(buf,0,sizeof(buf));
-    if (recv(sockfd,buf,sizeof(buf),0) <=0) 
-    { 
+
+    memset(buf, 0, sizeof(buf));
+    if (recv(sockfd, buf, sizeof(buf), 0) <= 0)
+    {
         printf("read() failed.\n");  close(sockfd);  return -1;
     }
 
-    printf("recv:%s\n",buf);
-} 
+    printf("recv:%s\n", buf);
+}
 
